@@ -39,6 +39,7 @@ export default function Editor() {
   const initialPrompt = searchParams.get('prompt');
   const linkedinUrl = searchParams.get('linkedin');
   const isPlanning = searchParams.get('planning') === 'true';
+  const forceGenerateMode = searchParams.get('mode') === 'generate';
 
   const [resume, setResume] = useState<ResumeData>(() => {
     // If template specified, use template styles
@@ -230,10 +231,29 @@ export default function Editor() {
     onCreditsUsed: handleCreditsUsed,
   });
 
-  // Auto-send initial prompt if provided via URL (with LinkedIn scraping if provided)
+  // Auto-send initial prompt if provided via URL (with attachments and LinkedIn)
   useEffect(() => {
     const processInitialData = async () => {
       if (hasAutoSentPrompt || isLoading) return;
+      
+      // Check for attached files from sessionStorage
+      const attachedFilesJson = sessionStorage.getItem('aira_attached_files');
+      let attachments: any[] = [];
+      
+      if (attachedFilesJson) {
+        try {
+          const filesData = JSON.parse(attachedFilesJson);
+          attachments = filesData.map((file: {name: string, type: string, data: string}) => ({
+            type: file.type.startsWith('image/') ? 'image' : 'file',
+            name: file.name,
+            base64: file.data
+          }));
+          // Clear after reading
+          sessionStorage.removeItem('aira_attached_files');
+        } catch (e) {
+          console.error('Error parsing attached files:', e);
+        }
+      }
       
       // Build prompt with available data
       let fullPrompt = '';
@@ -243,25 +263,30 @@ export default function Editor() {
         fullPrompt += `[LINKEDIN URL PARA SCRAPING: ${decodedLinkedin}]\n\n`;
       }
       
+      if (attachments.length > 0) {
+        fullPrompt += `[${attachments.length} ARQUIVO(S) ANEXADO(S) - analise e extraia as informações]\n\n`;
+      }
+      
       if (initialPrompt) {
         const decodedPrompt = decodeURIComponent(initialPrompt);
         fullPrompt += decodedPrompt;
-      } else if (linkedinUrl || initialJob) {
-        fullPrompt += 'Por favor, analise as informações fornecidas e gere um currículo otimizado para a vaga.';
+      } else if (linkedinUrl || initialJob || attachments.length > 0) {
+        fullPrompt += 'Por favor, analise as informações fornecidas e gere um currículo profissional otimizado.';
       }
       
       if (fullPrompt) {
         setHasAutoSentPrompt(true);
         // Small delay to ensure chat is ready
         setTimeout(() => {
-          // Use planning mode if isPlanning flag is set
-          sendMessage(fullPrompt, undefined, isPlanning ? 'planning' : 'generate');
+          // Use generate mode if forceGenerateMode or has attachments, otherwise check isPlanning
+          const useMode = forceGenerateMode || attachments.length > 0 ? 'generate' : (isPlanning ? 'planning' : 'generate');
+          sendMessage(fullPrompt, attachments.length > 0 ? attachments : undefined, useMode);
         }, 500);
       }
     };
     
     processInitialData();
-  }, [initialPrompt, linkedinUrl, initialJob, isPlanning, hasAutoSentPrompt, isLoading, sendMessage]);
+  }, [initialPrompt, linkedinUrl, initialJob, isPlanning, forceGenerateMode, hasAutoSentPrompt, isLoading, sendMessage]);
 
   const handleReset = () => {
     if (confirm('Tem certeza que deseja limpar tudo e começar do zero?')) {
