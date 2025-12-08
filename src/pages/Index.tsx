@@ -1,29 +1,43 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, WheelEvent } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { ResumeData, UserProfile, UserCredits, emptyResume, emptyUserProfile, exampleResume } from '@/types';
 import { ResumePreview } from '@/components/ResumePreview';
 import { ChatInterface } from '@/components/ChatInterface';
 import { JobDescriptionPanel } from '@/components/JobDescriptionPanel';
 import { CreditsDisplay } from '@/components/CreditsDisplay';
 import { UserProfileModal } from '@/components/UserProfileModal';
+import { ZoomControls } from '@/components/ZoomControls';
 import { useAIRAChat } from '@/hooks/useAIRAChat';
+import { useResumes } from '@/hooks/useResumes';
 import { Button } from '@/components/ui/button';
-import { User, Download, RotateCcw, FileText, Sparkles, Eye } from 'lucide-react';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { User, Download, RotateCcw, Eye, Sparkles, Save, LayoutDashboard, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const STORAGE_KEYS = {
   resume: 'aira_resume',
   profile: 'aira_profile',
   credits: 'aira_credits',
   jobDescription: 'aira_job_description',
+  chatPanelSize: 'aira_chat_panel_size',
 };
 
 const INITIAL_CREDITS = 5;
 
 export default function Index() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const resumeId = searchParams.get('id');
+  const isNew = searchParams.get('new') === 'true';
+
   const [resume, setResume] = useState<ResumeData>(() => {
+    if (isNew) return emptyResume;
     const saved = localStorage.getItem(STORAGE_KEYS.resume);
     return saved ? JSON.parse(saved) : emptyResume;
   });
+
+  const [currentResumeId, setCurrentResumeId] = useState<string | null>(resumeId);
 
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.profile);
@@ -38,6 +52,42 @@ export default function Index() {
   const [jobDescription, setJobDescription] = useState(() => {
     return localStorage.getItem(STORAGE_KEYS.jobDescription) || '';
   });
+
+  const [zoom, setZoom] = useState(1);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+  const [defaultPanelSize, setDefaultPanelSize] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.chatPanelSize);
+    return saved ? parseFloat(saved) : 30;
+  });
+
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const { saveResume } = useResumes();
+
+  // Load resume from database if ID is provided
+  useEffect(() => {
+    if (resumeId) {
+      const loadResume = async () => {
+        const { data, error } = await supabase
+          .from('resumes')
+          .select('*')
+          .eq('id', resumeId)
+          .single();
+
+        if (error) {
+          console.error('Error loading resume:', error);
+          toast.error('Erro ao carregar currículo');
+          return;
+        }
+
+        if (data) {
+          setResume(data.data as unknown as ResumeData);
+          setJobDescription(data.job_description || '');
+          setCurrentResumeId(data.id);
+        }
+      };
+      loadResume();
+    }
+  }, [resumeId]);
 
   // Save to localStorage
   useEffect(() => {
@@ -58,7 +108,6 @@ export default function Index() {
 
   const handleResumeUpdate = useCallback((data: Partial<ResumeData>) => {
     setResume(prev => {
-      // Deep merge for nested objects
       const merged = { ...prev };
       
       if (data.personalInfo) {
@@ -123,7 +172,9 @@ export default function Index() {
     if (confirm('Tem certeza que deseja limpar tudo e começar do zero?')) {
       setResume(emptyResume);
       setJobDescription('');
+      setCurrentResumeId(null);
       clearChat();
+      navigate('/');
       toast.success('Tudo limpo! Vamos recomeçar.');
     }
   };
@@ -136,6 +187,31 @@ export default function Index() {
   const handleExportPDF = () => {
     window.print();
     toast.success('Use Ctrl+P ou Cmd+P para salvar como PDF');
+  };
+
+  const handleSave = async () => {
+    const id = await saveResume(resume, jobDescription, currentResumeId || undefined);
+    if (id) {
+      setCurrentResumeId(id);
+    }
+  };
+
+  const handleWheel = (e: WheelEvent<HTMLDivElement>) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom(prev => Math.min(2, Math.max(0.5, Math.round((prev + delta) * 10) / 10)));
+    }
+  };
+
+  const handlePanelResize = (size: number) => {
+    localStorage.setItem(STORAGE_KEYS.chatPanelSize, size.toString());
+    setDefaultPanelSize(size);
+    setIsPanelCollapsed(size < 5);
+  };
+
+  const togglePanel = () => {
+    setIsPanelCollapsed(!isPanelCollapsed);
   };
 
   const noCredits = credits.remaining <= 0;
@@ -157,8 +233,13 @@ export default function Index() {
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <CreditsDisplay credits={credits} />
+            
+            <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')} title="Dashboard" className="gap-1">
+              <LayoutDashboard className="w-4 h-4" />
+              <span className="hidden sm:inline">Meus Currículos</span>
+            </Button>
             
             <Button variant="outline" size="sm" onClick={handleLoadExample} title="Ver Exemplo" className="gap-1">
               <Eye className="w-4 h-4" />
@@ -171,12 +252,12 @@ export default function Index() {
               </Button>
             </UserProfileModal>
             
-            <Button variant="outline" size="icon" onClick={handleExportPDF} title="Exportar PDF">
-              <Download className="w-4 h-4" />
+            <Button variant="outline" size="icon" onClick={handleSave} title="Salvar">
+              <Save className="w-4 h-4" />
             </Button>
             
-            <Button variant="outline" size="icon" onClick={handleReset} title="Recomeçar">
-              <RotateCcw className="w-4 h-4" />
+            <Button variant="outline" size="icon" onClick={handleExportPDF} title="Exportar PDF">
+              <Download className="w-4 h-4" />
             </Button>
             
             <Button variant="outline" size="icon" onClick={handleReset} title="Recomeçar">
@@ -187,45 +268,94 @@ export default function Index() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex overflow-hidden">
-        {/* Chat Sidebar */}
-        <aside className="w-[420px] border-r border-border flex flex-col bg-card print:hidden">
-          {/* Job Description */}
-          <div className="p-4 border-b border-border">
-            <JobDescriptionPanel
-              value={jobDescription}
-              onChange={setJobDescription}
-            />
-          </div>
+      <main className="flex-1 flex overflow-hidden print:block">
+        <ResizablePanelGroup direction="horizontal" className="flex-1">
+          {/* Chat Panel */}
+          <ResizablePanel 
+            defaultSize={isPanelCollapsed ? 0 : defaultPanelSize} 
+            minSize={0}
+            maxSize={50}
+            collapsible
+            collapsedSize={0}
+            onResize={handlePanelResize}
+            className="print:hidden"
+          >
+            <aside className="h-full border-r border-border flex flex-col bg-card">
+              {/* Job Description */}
+              <div className="p-4 border-b border-border">
+                <JobDescriptionPanel
+                  value={jobDescription}
+                  onChange={setJobDescription}
+                />
+              </div>
+              
+              {/* Chat */}
+              <div className="flex-1 overflow-hidden">
+                <ChatInterface
+                  messages={messages}
+                  isLoading={isLoading}
+                  mode={mode}
+                  onModeChange={setMode}
+                  onSendMessage={sendMessage}
+                  disabled={noCredits}
+                  jobDescription={jobDescription}
+                  onResumeUpdate={handleResumeUpdate}
+                />
+              </div>
+              
+              {noCredits && (
+                <div className="p-4 bg-destructive/10 border-t border-destructive/20">
+                  <p className="text-sm text-destructive font-medium">
+                    Seus créditos acabaram! 
+                  </p>
+                  <p className="text-xs text-destructive/80 mt-1">
+                    Você pode continuar editando o currículo manualmente.
+                  </p>
+                </div>
+              )}
+            </aside>
+          </ResizablePanel>
           
-          {/* Chat */}
-          <div className="flex-1 overflow-hidden">
-            <ChatInterface
-              messages={messages}
-              isLoading={isLoading}
-              mode={mode}
-              onModeChange={setMode}
-              onSendMessage={sendMessage}
-              disabled={noCredits}
-            />
-          </div>
-          
-          {noCredits && (
-            <div className="p-4 bg-destructive/10 border-t border-destructive/20">
-              <p className="text-sm text-destructive font-medium">
-                Seus créditos acabaram! 
-              </p>
-              <p className="text-xs text-destructive/80 mt-1">
-                Você pode continuar editando o currículo manualmente.
-              </p>
-            </div>
-          )}
-        </aside>
+          <ResizableHandle withHandle className="print:hidden" />
 
-        {/* Resume Preview */}
-        <section className="flex-1 overflow-auto bg-muted/30 p-8 print:p-0 print:bg-white">
-          <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
-        </section>
+          {/* Resume Preview */}
+          <ResizablePanel defaultSize={isPanelCollapsed ? 100 : 100 - defaultPanelSize}>
+            <section className="relative h-full overflow-hidden bg-muted/30 print:bg-white print:overflow-visible">
+              {/* Collapse toggle */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={togglePanel}
+                className="absolute top-4 left-4 z-10 bg-card/90 backdrop-blur-sm shadow-lg print:hidden"
+                title={isPanelCollapsed ? "Expandir chat" : "Recolher chat"}
+              >
+                {isPanelCollapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+              </Button>
+
+              {/* Zoom Controls */}
+              <div className="absolute top-4 right-4 z-10 print:hidden">
+                <ZoomControls zoom={zoom} onZoomChange={setZoom} />
+              </div>
+
+              {/* Preview Container with Zoom */}
+              <div 
+                ref={previewContainerRef}
+                className="h-full overflow-auto p-8 print:p-0 print:overflow-visible"
+                onWheel={handleWheel}
+              >
+                <div 
+                  className="origin-top-left transition-transform duration-150 print:transform-none"
+                  style={{ 
+                    transform: `scale(${zoom})`,
+                    width: `${100 / zoom}%`,
+                  }}
+                >
+                  <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
+                </div>
+              </div>
+            </section>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </main>
     </div>
   );

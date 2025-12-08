@@ -1,1 +1,7 @@
 project_id = "ofibaexkxacahzftdodb"
+
+[functions.aira-chat]
+verify_jwt = false
+
+[functions.extract-pdf]
+verify_jwt = false

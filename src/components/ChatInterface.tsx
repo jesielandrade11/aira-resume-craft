@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent } from 'react';
-import { Send, Paperclip, X, FileText, Sparkles, MessageSquare, Zap } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Sparkles, MessageSquare, Zap, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ChatMessage, ChatAttachment } from '@/types';
+import { ChatMessage, ChatAttachment, ResumeData } from '@/types';
 import { ChatMode } from '@/hooks/useAIRAChat';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -13,11 +14,23 @@ interface ChatInterfaceProps {
   onModeChange: (mode: ChatMode) => void;
   onSendMessage: (content: string, attachments?: ChatAttachment[], overrideMode?: ChatMode) => void;
   disabled?: boolean;
+  jobDescription?: string;
+  onResumeUpdate?: (data: Partial<ResumeData>) => void;
 }
 
-export function ChatInterface({ messages, isLoading, mode, onModeChange, onSendMessage, disabled }: ChatInterfaceProps) {
+export function ChatInterface({ 
+  messages, 
+  isLoading, 
+  mode, 
+  onModeChange, 
+  onSendMessage, 
+  disabled,
+  jobDescription,
+  onResumeUpdate 
+}: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -26,8 +39,72 @@ export function ChatInterface({ messages, isLoading, mode, onModeChange, onSendM
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = (overrideMode?: ChatMode) => {
-    if ((!input.trim() && attachments.length === 0) || disabled) return;
+  const extractPdfContent = async (pdfBase64: string): Promise<Partial<ResumeData> | null> => {
+    try {
+      setIsExtractingPdf(true);
+      toast.info('Extraindo conteúdo do PDF...');
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          pdfBase64,
+          jobDescription,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao extrair PDF');
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        toast.success('PDF extraído com sucesso!');
+        return result.data;
+      } else if (result.rawContent) {
+        toast.warning('Não foi possível estruturar os dados. Usando texto bruto.');
+        return null;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('PDF extraction error:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao extrair PDF');
+      return null;
+    } finally {
+      setIsExtractingPdf(false);
+    }
+  };
+
+  const handleSend = async (overrideMode?: ChatMode) => {
+    if ((!input.trim() && attachments.length === 0) || disabled || isExtractingPdf) return;
+    
+    // Check for PDF attachments
+    const pdfAttachment = attachments.find(a => a.name.toLowerCase().endsWith('.pdf'));
+    
+    if (pdfAttachment && pdfAttachment.base64 && onResumeUpdate) {
+      // Extract PDF and update resume directly
+      const extractedData = await extractPdfContent(pdfAttachment.base64);
+      
+      if (extractedData) {
+        onResumeUpdate(extractedData);
+        
+        // Send a message to confirm the extraction
+        onSendMessage(
+          input.trim() || `Importei meu currículo do arquivo "${pdfAttachment.name}". Por favor, revise e me diga o que você acha.`,
+          undefined,
+          overrideMode || 'generate'
+        );
+        setInput('');
+        setAttachments([]);
+        return;
+      }
+    }
     
     onSendMessage(input.trim(), attachments.length > 0 ? attachments : undefined, overrideMode);
     setInput('');
@@ -76,16 +153,22 @@ export function ChatInterface({ messages, isLoading, mode, onModeChange, onSendM
       reader.onload = () => {
         const base64 = reader.result as string;
         const isImage = file.type.startsWith('image/');
+        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
         
         const attachment: ChatAttachment = {
           id: crypto.randomUUID(),
           type: isImage ? 'image' : 'document',
           name: file.name,
           url: URL.createObjectURL(file),
-          base64: isImage ? base64 : undefined,
+          base64: base64, // Store base64 for both images and PDFs
         };
         
         setAttachments(prev => [...prev, attachment]);
+        
+        if (isPdf) {
+          toast.info('PDF detectado! Envie para extrair automaticamente o conteúdo.');
+        }
+        
         resolve();
       };
       reader.readAsDataURL(file);
@@ -156,8 +239,13 @@ export function ChatInterface({ messages, isLoading, mode, onModeChange, onSendM
                 ? "No modo Planejar, vamos conversar sobre suas experiências e objetivos. Faça perguntas, explore ideias!"
                 : "No modo Gerar, vou criar ou modificar seu currículo diretamente com base no que você pedir."}
             </p>
-            <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 max-w-xs mx-auto">
-              <strong>💡 Dica:</strong> Use <strong>Planejar</strong> para explorar e decidir. Use <strong>Gerar</strong> quando souber exatamente o que quer.
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 max-w-xs mx-auto space-y-2">
+              <div>
+                <strong>💡 Dica:</strong> Use <strong>Planejar</strong> para explorar e decidir. Use <strong>Gerar</strong> quando souber exatamente o que quer.
+              </div>
+              <div>
+                <strong>📄 PDF:</strong> Anexe um currículo em PDF para extrair automaticamente todas as informações!
+              </div>
             </div>
           </div>
         )}
@@ -203,14 +291,21 @@ export function ChatInterface({ messages, isLoading, mode, onModeChange, onSendM
           </div>
         ))}
         
-        {isLoading && (
+        {(isLoading || isExtractingPdf) && (
           <div className="flex justify-start">
             <div className="bg-chat-message rounded-2xl rounded-bl-md px-4 py-3">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-aira-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-aira-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-aira-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
+              {isExtractingPdf ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Extraindo PDF...</span>
+                </div>
+              ) : (
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 bg-aira-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-aira-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-aira-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -264,7 +359,7 @@ export function ChatInterface({ messages, isLoading, mode, onModeChange, onSendM
             variant="ghost"
             size="icon"
             onClick={() => fileInputRef.current?.click()}
-            disabled={disabled}
+            disabled={disabled || isExtractingPdf}
             className="shrink-0 text-muted-foreground hover:text-foreground"
           >
             <Paperclip className="w-5 h-5" />
@@ -280,14 +375,14 @@ export function ChatInterface({ messages, isLoading, mode, onModeChange, onSendM
               ? "Pergunte, explore, planeje..." 
               : "Diga o que quer gerar ou modificar..."
             }
-            disabled={disabled}
+            disabled={disabled || isExtractingPdf}
             className="min-h-[44px] max-h-[120px] resize-none bg-background border-chat-border"
             rows={1}
           />
           
           <Button
             onClick={() => handleSend()}
-            disabled={disabled || (!input.trim() && attachments.length === 0)}
+            disabled={disabled || isExtractingPdf || (!input.trim() && attachments.length === 0)}
             className={cn(
               "shrink-0",
               mode === 'planning' 
@@ -295,7 +390,11 @@ export function ChatInterface({ messages, isLoading, mode, onModeChange, onSendM
                 : "bg-amber-500 hover:bg-amber-600"
             )}
           >
-            <Send className="w-5 h-5" />
+            {isExtractingPdf ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
           </Button>
         </div>
       </div>
