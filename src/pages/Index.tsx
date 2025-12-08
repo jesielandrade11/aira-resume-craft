@@ -12,6 +12,7 @@ import { useAIRAChat } from '@/hooks/useAIRAChat';
 import { useResumes } from '@/hooks/useResumes';
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { User, Download, RotateCcw, Eye, Sparkles, Save, LayoutDashboard, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,6 +64,7 @@ export default function Index() {
   });
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const chatPanelRef = useRef<ImperativePanelHandle>(null);
   const { saveResume } = useResumes();
 
   // Load resume from database if ID is provided
@@ -253,6 +255,11 @@ export default function Index() {
   };
 
   const togglePanel = () => {
+    if (isPanelCollapsed) {
+      chatPanelRef.current?.expand();
+    } else {
+      chatPanelRef.current?.collapse();
+    }
     setIsPanelCollapsed(!isPanelCollapsed);
   };
 
@@ -314,11 +321,14 @@ export default function Index() {
         <ResizablePanelGroup direction="horizontal" className="flex-1">
           {/* Chat Panel */}
           <ResizablePanel 
-            defaultSize={isPanelCollapsed ? 0 : defaultPanelSize} 
+            ref={chatPanelRef}
+            defaultSize={defaultPanelSize} 
             minSize={0}
             maxSize={50}
             collapsible
             collapsedSize={0}
+            onCollapse={() => setIsPanelCollapsed(true)}
+            onExpand={() => setIsPanelCollapsed(false)}
             onResize={handlePanelResize}
             className="print:hidden"
           >
