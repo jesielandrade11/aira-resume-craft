@@ -64,8 +64,8 @@ export default function Editor() {
   });
 
   const [credits, setCredits] = useState<UserCredits>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.credits);
-    return saved ? JSON.parse(saved) : { total: INITIAL_CREDITS, used: 0, remaining: INITIAL_CREDITS };
+    // Força créditos ilimitados para testes - ignora localStorage
+    return { total: INITIAL_CREDITS, used: 0, remaining: INITIAL_CREDITS };
   });
 
   const [jobDescription, setJobDescription] = useState(() => {
