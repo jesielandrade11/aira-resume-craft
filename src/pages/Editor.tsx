@@ -10,10 +10,11 @@ import { ZoomControls } from '@/components/ZoomControls';
 import { BuyCreditsModal } from '@/components/BuyCreditsModal';
 import { useAIRAChat } from '@/hooks/useAIRAChat';
 import { useResumes } from '@/hooks/useResumes';
+import { getTemplateById } from '@/data/resumeTemplates';
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
-import { User, Download, RotateCcw, Eye, Sparkles, Save, LayoutDashboard, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { User, Download, RotateCcw, Eye, Sparkles, Save, Home, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -27,19 +28,33 @@ const STORAGE_KEYS = {
 
 const INITIAL_CREDITS = 5;
 
-export default function Index() {
+export default function Editor() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  
   const resumeId = searchParams.get('id');
   const isNew = searchParams.get('new') === 'true';
+  const templateId = searchParams.get('template');
+  const initialJob = searchParams.get('job');
+  const initialPrompt = searchParams.get('prompt');
 
   const [resume, setResume] = useState<ResumeData>(() => {
+    // If template specified, use template styles
+    if (templateId) {
+      const template = getTemplateById(templateId);
+      if (template) {
+        return { ...emptyResume, styles: template.styles };
+      }
+    }
+    // If new, start empty
     if (isNew) return emptyResume;
+    // Otherwise try to load from localStorage
     const saved = localStorage.getItem(STORAGE_KEYS.resume);
     return saved ? JSON.parse(saved) : emptyResume;
   });
 
   const [currentResumeId, setCurrentResumeId] = useState<string | null>(resumeId);
+  const [hasAutoSentPrompt, setHasAutoSentPrompt] = useState(false);
 
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.profile);
@@ -52,6 +67,10 @@ export default function Index() {
   });
 
   const [jobDescription, setJobDescription] = useState(() => {
+    // If job passed via URL, use it
+    if (initialJob) {
+      return decodeURIComponent(initialJob);
+    }
     return localStorage.getItem(STORAGE_KEYS.jobDescription) || '';
   });
 
@@ -119,7 +138,6 @@ export default function Index() {
       const creditsToAdd = parseInt(creditsParam, 10);
       
       if (creditsToAdd === -1) {
-        // Unlimited subscription
         setCredits({
           total: 9999,
           used: 0,
@@ -135,11 +153,10 @@ export default function Index() {
         toast.success(`🎉 ${creditsToAdd} créditos adicionados com sucesso!`);
       }
       
-      // Clean URL
-      navigate('/', { replace: true });
+      navigate('/editor', { replace: true });
     } else if (payment === 'canceled') {
       toast.error('Pagamento cancelado.');
-      navigate('/', { replace: true });
+      navigate('/editor', { replace: true });
     }
   }, [searchParams, navigate]);
 
@@ -191,7 +208,6 @@ export default function Index() {
   const handleCreditsUsed = useCallback((amount: number) => {
     setCredits(prev => {
       const newRemaining = Math.max(0, prev.remaining - amount);
-      // Show modal when credits run out
       if (newRemaining <= 0 && prev.remaining > 0) {
         setTimeout(() => setShowBuyCreditsModal(true), 500);
       }
@@ -212,13 +228,25 @@ export default function Index() {
     onCreditsUsed: handleCreditsUsed,
   });
 
+  // Auto-send initial prompt if provided via URL
+  useEffect(() => {
+    if (initialPrompt && !hasAutoSentPrompt && !isLoading) {
+      const decodedPrompt = decodeURIComponent(initialPrompt);
+      setHasAutoSentPrompt(true);
+      // Small delay to ensure chat is ready
+      setTimeout(() => {
+        sendMessage(decodedPrompt);
+      }, 500);
+    }
+  }, [initialPrompt, hasAutoSentPrompt, isLoading, sendMessage]);
+
   const handleReset = () => {
     if (confirm('Tem certeza que deseja limpar tudo e começar do zero?')) {
       setResume(emptyResume);
       setJobDescription('');
       setCurrentResumeId(null);
       clearChat();
-      navigate('/');
+      navigate('/editor?new=true');
       toast.success('Tudo limpo! Vamos recomeçar.');
     }
   };
@@ -271,11 +299,11 @@ export default function Index() {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-aira-primary to-aira-secondary flex items-center justify-center shadow-lg shadow-aira-primary/20">
-              <Sparkles className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
+              <Sparkles className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-aira-primary to-aira-secondary bg-clip-text text-transparent">
+              <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                 AIRA
               </h1>
               <p className="text-xs text-muted-foreground">Artificial Intelligence Resume Architect</p>
@@ -285,9 +313,9 @@ export default function Index() {
           <div className="flex items-center gap-2">
             <CreditsDisplay credits={credits} />
             
-            <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')} title="Dashboard" className="gap-1">
-              <LayoutDashboard className="w-4 h-4" />
-              <span className="hidden sm:inline">Meus Currículos</span>
+            <Button variant="outline" size="sm" onClick={() => navigate('/')} title="Início" className="gap-1">
+              <Home className="w-4 h-4" />
+              <span className="hidden sm:inline">Início</span>
             </Button>
             
             <Button variant="outline" size="sm" onClick={handleLoadExample} title="Ver Exemplo" className="gap-1">
@@ -377,7 +405,7 @@ export default function Index() {
                   <Button 
                     variant="default" 
                     size="sm" 
-                    className="w-full mt-2 bg-aira-primary hover:bg-aira-primary/90"
+                    className="w-full mt-2"
                     onClick={() => setShowBuyCreditsModal(true)}
                   >
                     Comprar mais créditos
@@ -398,7 +426,7 @@ export default function Index() {
                   variant="default"
                   size="sm"
                   onClick={togglePanel}
-                  className="absolute top-4 left-4 z-10 bg-aira-primary hover:bg-aira-primary/90 shadow-lg print:hidden gap-2"
+                  className="absolute top-4 left-4 z-10 shadow-lg print:hidden gap-2"
                   title="Expandir chat"
                 >
                   <PanelLeft className="w-4 h-4" />
