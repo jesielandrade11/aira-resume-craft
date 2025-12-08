@@ -102,15 +102,15 @@ export default function Index() {
     toast.success('Perfil atualizado!');
   }, []);
 
-  const handleCreditsUsed = useCallback(() => {
+  const handleCreditsUsed = useCallback((amount: number) => {
     setCredits(prev => ({
       ...prev,
-      used: prev.used + 1,
-      remaining: Math.max(0, prev.remaining - 1),
+      used: prev.used + amount,
+      remaining: Math.max(0, prev.remaining - amount),
     }));
   }, []);
 
-  const { messages, isLoading, sendMessage, clearChat } = useAIRAChat({
+  const { messages, isLoading, mode, setMode, sendMessage, clearChat } = useAIRAChat({
     resume,
     userProfile,
     jobDescription,
@@ -203,6 +203,8 @@ export default function Index() {
             <ChatInterface
               messages={messages}
               isLoading={isLoading}
+              mode={mode}
+              onModeChange={setMode}
               onSendMessage={sendMessage}
               disabled={noCredits}
             />

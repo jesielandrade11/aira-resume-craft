@@ -3,13 +3,15 @@ import { ChatMessage, ChatAttachment, ResumeData, UserProfile } from '@/types';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aira-chat`;
 
+export type ChatMode = 'planning' | 'generate';
+
 interface UseAIRAChatProps {
   resume: ResumeData;
   userProfile: UserProfile;
   jobDescription: string;
   onResumeUpdate: (data: Partial<ResumeData>) => void;
   onProfileUpdate: (data: Partial<UserProfile>) => void;
-  onCreditsUsed: () => void;
+  onCreditsUsed: (amount: number) => void;
 }
 
 export function useAIRAChat({
@@ -22,6 +24,7 @@ export function useAIRAChat({
 }: UseAIRAChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [mode, setMode] = useState<ChatMode>('planning');
 
   const parseAIResponse = useCallback((content: string) => {
     // Check for resume updates
@@ -57,7 +60,9 @@ export function useAIRAChat({
       .trim();
   }, [onResumeUpdate, onProfileUpdate]);
 
-  const sendMessage = useCallback(async (content: string, attachments?: ChatAttachment[]) => {
+  const sendMessage = useCallback(async (content: string, attachments?: ChatAttachment[], overrideMode?: ChatMode) => {
+    const currentMode = overrideMode || mode;
+    
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -69,8 +74,9 @@ export function useAIRAChat({
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
-    // Track credit usage
-    onCreditsUsed();
+    // Track credit usage based on mode
+    const creditCost = currentMode === 'planning' ? 0.2 : 1;
+    onCreditsUsed(creditCost);
 
     let assistantContent = '';
 
@@ -117,6 +123,7 @@ export function useAIRAChat({
           userProfile,
           jobDescription,
           attachments,
+          mode: currentMode,
         }),
       });
 
@@ -188,7 +195,7 @@ export function useAIRAChat({
     } finally {
       setIsLoading(false);
     }
-  }, [messages, resume, userProfile, jobDescription, onCreditsUsed, parseAIResponse]);
+  }, [messages, resume, userProfile, jobDescription, mode, onCreditsUsed, parseAIResponse]);
 
   const clearChat = useCallback(() => {
     setMessages([]);
@@ -197,6 +204,8 @@ export function useAIRAChat({
   return {
     messages,
     isLoading,
+    mode,
+    setMode,
     sendMessage,
     clearChat,
   };

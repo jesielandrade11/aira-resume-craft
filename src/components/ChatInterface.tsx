@@ -1,18 +1,21 @@
 import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent } from 'react';
-import { Send, Paperclip, X, Image, FileText, Sparkles } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Sparkles, MessageSquare, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage, ChatAttachment } from '@/types';
+import { ChatMode } from '@/hooks/useAIRAChat';
 import { cn } from '@/lib/utils';
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
   isLoading: boolean;
-  onSendMessage: (content: string, attachments?: ChatAttachment[]) => void;
+  mode: ChatMode;
+  onModeChange: (mode: ChatMode) => void;
+  onSendMessage: (content: string, attachments?: ChatAttachment[], overrideMode?: ChatMode) => void;
   disabled?: boolean;
 }
 
-export function ChatInterface({ messages, isLoading, onSendMessage, disabled }: ChatInterfaceProps) {
+export function ChatInterface({ messages, isLoading, mode, onModeChange, onSendMessage, disabled }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -23,10 +26,10 @@ export function ChatInterface({ messages, isLoading, onSendMessage, disabled }: 
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = (overrideMode?: ChatMode) => {
     if ((!input.trim() && attachments.length === 0) || disabled) return;
     
-    onSendMessage(input.trim(), attachments.length > 0 ? attachments : undefined);
+    onSendMessage(input.trim(), attachments.length > 0 ? attachments : undefined, overrideMode);
     setInput('');
     setAttachments([]);
   };
@@ -97,14 +100,46 @@ export function ChatInterface({ messages, isLoading, onSendMessage, disabled }: 
     <div className="flex flex-col h-full bg-chat-bg">
       {/* Header */}
       <div className="chat-header p-4 border-b border-chat-border">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-aira-primary to-aira-secondary flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-aira-primary to-aira-secondary flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-foreground">AIRA</h2>
+              <p className="text-xs text-muted-foreground">Sua arquiteta de currículos</p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-semibold text-foreground">AIRA</h2>
-            <p className="text-xs text-muted-foreground">Sua arquiteta de currículos</p>
-          </div>
+        </div>
+        
+        {/* Mode Toggle */}
+        <div className="flex gap-2 mt-3">
+          <button
+            onClick={() => onModeChange('planning')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all",
+              mode === 'planning' 
+                ? "bg-aira-primary/10 text-aira-primary border-2 border-aira-primary" 
+                : "bg-muted/50 text-muted-foreground border-2 border-transparent hover:bg-muted"
+            )}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Planejar</span>
+            <span className="text-xs opacity-70">(0.2 crédito)</span>
+          </button>
+          <button
+            onClick={() => onModeChange('generate')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all",
+              mode === 'generate' 
+                ? "bg-amber-500/10 text-amber-600 border-2 border-amber-500" 
+                : "bg-muted/50 text-muted-foreground border-2 border-transparent hover:bg-muted"
+            )}
+          >
+            <Zap className="w-4 h-4" />
+            <span>Gerar</span>
+            <span className="text-xs opacity-70">(1 crédito)</span>
+          </button>
         </div>
       </div>
 
@@ -116,10 +151,14 @@ export function ChatInterface({ messages, isLoading, onSendMessage, disabled }: 
               <Sparkles className="w-8 h-8 text-white" />
             </div>
             <h3 className="text-lg font-medium text-foreground mb-2">Olá! Eu sou a AIRA</h3>
-            <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-              Sua assistente de inteligência artificial para criação de currículos. 
-              Cole a descrição da vaga desejada e vamos criar um currículo perfeito juntos!
+            <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-4">
+              {mode === 'planning' 
+                ? "No modo Planejar, vamos conversar sobre suas experiências e objetivos. Faça perguntas, explore ideias!"
+                : "No modo Gerar, vou criar ou modificar seu currículo diretamente com base no que você pedir."}
             </p>
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 max-w-xs mx-auto">
+              <strong>💡 Dica:</strong> Use <strong>Planejar</strong> para explorar e decidir. Use <strong>Gerar</strong> quando souber exatamente o que quer.
+            </div>
           </div>
         )}
         
@@ -237,16 +276,24 @@ export function ChatInterface({ messages, isLoading, onSendMessage, disabled }: 
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder="Digite sua mensagem ou cole uma imagem..."
+            placeholder={mode === 'planning' 
+              ? "Pergunte, explore, planeje..." 
+              : "Diga o que quer gerar ou modificar..."
+            }
             disabled={disabled}
             className="min-h-[44px] max-h-[120px] resize-none bg-background border-chat-border"
             rows={1}
           />
           
           <Button
-            onClick={handleSend}
+            onClick={() => handleSend()}
             disabled={disabled || (!input.trim() && attachments.length === 0)}
-            className="shrink-0 bg-aira-primary hover:bg-aira-primary/90"
+            className={cn(
+              "shrink-0",
+              mode === 'planning' 
+                ? "bg-aira-primary hover:bg-aira-primary/90" 
+                : "bg-amber-500 hover:bg-amber-600"
+            )}
           >
             <Send className="w-5 h-5" />
           </Button>
