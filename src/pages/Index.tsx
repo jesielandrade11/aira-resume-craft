@@ -323,6 +323,20 @@ export default function Index() {
             className="print:hidden"
           >
             <aside className="h-full border-r border-border flex flex-col bg-card">
+              {/* Panel Header with Toggle */}
+              <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
+                <span className="text-sm font-medium text-muted-foreground">Chat AIRA</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={togglePanel}
+                  className="h-8 w-8"
+                  title="Recolher painel"
+                >
+                  <PanelLeftClose className="w-4 h-4" />
+                </Button>
+              </div>
+              
               {/* Job Description */}
               <div className="p-4 border-b border-border">
                 <JobDescriptionPanel
@@ -368,16 +382,19 @@ export default function Index() {
           {/* Resume Preview */}
           <ResizablePanel defaultSize={isPanelCollapsed ? 100 : 100 - defaultPanelSize}>
             <section className="relative h-full overflow-hidden bg-muted/30 print:bg-white print:overflow-visible">
-              {/* Collapse toggle */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={togglePanel}
-                className="absolute top-4 left-4 z-10 bg-card/90 backdrop-blur-sm shadow-lg print:hidden"
-                title={isPanelCollapsed ? "Expandir chat" : "Recolher chat"}
-              >
-                {isPanelCollapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
-              </Button>
+              {/* Expand toggle - only show when panel is collapsed */}
+              {isPanelCollapsed && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={togglePanel}
+                  className="absolute top-4 left-4 z-10 bg-aira-primary hover:bg-aira-primary/90 shadow-lg print:hidden gap-2"
+                  title="Expandir chat"
+                >
+                  <PanelLeft className="w-4 h-4" />
+                  <span>Chat</span>
+                </Button>
+              )}
 
               {/* Zoom Controls */}
               <div className="absolute top-4 right-4 z-10 print:hidden">
