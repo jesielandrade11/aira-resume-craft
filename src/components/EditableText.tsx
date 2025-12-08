@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, KeyboardEvent, CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 
 interface EditableTextProps {
@@ -6,6 +6,7 @@ interface EditableTextProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  style?: CSSProperties;
   as?: 'h1' | 'h2' | 'h3' | 'p' | 'span';
   multiline?: boolean;
 }
@@ -15,6 +16,7 @@ export function EditableText({
   onChange,
   placeholder = 'Clique para editar',
   className,
+  style,
   as: Component = 'span',
   multiline = false,
 }: EditableTextProps) {
@@ -70,6 +72,7 @@ export function EditableText({
           multiline && 'resize-none min-h-[60px]',
           className
         )}
+        style={style}
         placeholder={placeholder}
       />
     );
@@ -83,6 +86,7 @@ export function EditableText({
         !value && 'text-resume-muted italic',
         className
       )}
+      style={style}
     >
       {value || placeholder}
     </Component>
