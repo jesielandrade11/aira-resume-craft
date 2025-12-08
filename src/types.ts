@@ -188,6 +188,66 @@ export const emptyResume: ResumeData = {
   customSections: [],
 };
 
+// Example resume for preview
+export const exampleResume: ResumeData = {
+  personalInfo: {
+    fullName: 'Maria Silva Santos',
+    title: 'Desenvolvedora Full Stack Senior',
+    email: 'maria.santos@email.com',
+    phone: '(11) 99999-8888',
+    location: 'São Paulo, SP',
+    linkedin: 'linkedin.com/in/mariasilva',
+    website: 'mariasilva.dev',
+    summary: 'Desenvolvedora Full Stack com mais de 6 anos de experiência em criação de aplicações web escaláveis. Especialista em React, Node.js e arquiteturas cloud. Apaixonada por código limpo, boas práticas e mentoria de desenvolvedores juniores.',
+  },
+  experience: [
+    {
+      id: '1',
+      company: 'TechCorp Brasil',
+      position: 'Desenvolvedora Full Stack Senior',
+      startDate: 'Jan 2021',
+      endDate: 'Atual',
+      description: '• Liderança técnica de squad com 5 desenvolvedores\n• Arquitetura e desenvolvimento de microserviços em Node.js\n• Implementação de CI/CD reduzindo tempo de deploy em 60%\n• Mentoria de 3 desenvolvedores juniores',
+    },
+    {
+      id: '2',
+      company: 'StartupXYZ',
+      position: 'Desenvolvedora Full Stack',
+      startDate: 'Mar 2018',
+      endDate: 'Dez 2020',
+      description: '• Desenvolvimento de SPA com React e TypeScript\n• Criação de APIs RESTful com Express.js\n• Integração com serviços AWS (S3, Lambda, DynamoDB)',
+    },
+  ],
+  education: [
+    {
+      id: '1',
+      institution: 'Universidade de São Paulo',
+      degree: 'Bacharelado',
+      field: 'Ciência da Computação',
+      startDate: '2014',
+      endDate: '2018',
+    },
+  ],
+  skills: [
+    { id: '1', name: 'React', level: 'Expert' },
+    { id: '2', name: 'TypeScript', level: 'Expert' },
+    { id: '3', name: 'Node.js', level: 'Avançado' },
+    { id: '4', name: 'AWS', level: 'Avançado' },
+    { id: '5', name: 'PostgreSQL', level: 'Intermediário' },
+    { id: '6', name: 'Docker', level: 'Intermediário' },
+  ],
+  languages: [
+    { id: '1', name: 'Português', proficiency: 'Nativo' },
+    { id: '2', name: 'Inglês', proficiency: 'Fluente' },
+  ],
+  certifications: [
+    { id: '1', name: 'AWS Solutions Architect', issuer: 'Amazon', date: '2022' },
+  ],
+  projects: [],
+  styles: defaultStyles,
+  customSections: [],
+};
+
 export const emptyUserProfile: UserProfile = {
   id: '',
   fullName: '',

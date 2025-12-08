@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ResumeData, UserProfile, UserCredits, emptyResume, emptyUserProfile } from '@/types';
+import { ResumeData, UserProfile, UserCredits, emptyResume, emptyUserProfile, exampleResume } from '@/types';
 import { ResumePreview } from '@/components/ResumePreview';
 import { ChatInterface } from '@/components/ChatInterface';
 import { JobDescriptionPanel } from '@/components/JobDescriptionPanel';
@@ -7,7 +7,7 @@ import { CreditsDisplay } from '@/components/CreditsDisplay';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { useAIRAChat } from '@/hooks/useAIRAChat';
 import { Button } from '@/components/ui/button';
-import { User, Download, RotateCcw, FileText, Sparkles } from 'lucide-react';
+import { User, Download, RotateCcw, FileText, Sparkles, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
 const STORAGE_KEYS = {
@@ -128,6 +128,11 @@ export default function Index() {
     }
   };
 
+  const handleLoadExample = () => {
+    setResume(exampleResume);
+    toast.success('Currículo de exemplo carregado! Edite como quiser.');
+  };
+
   const handleExportPDF = () => {
     window.print();
     toast.success('Use Ctrl+P ou Cmd+P para salvar como PDF');
@@ -155,6 +160,11 @@ export default function Index() {
           <div className="flex items-center gap-3">
             <CreditsDisplay credits={credits} />
             
+            <Button variant="outline" size="sm" onClick={handleLoadExample} title="Ver Exemplo" className="gap-1">
+              <Eye className="w-4 h-4" />
+              <span className="hidden sm:inline">Exemplo</span>
+            </Button>
+            
             <UserProfileModal profile={userProfile}>
               <Button variant="outline" size="icon" title="Seu Perfil">
                 <User className="w-4 h-4" />
@@ -163,6 +173,10 @@ export default function Index() {
             
             <Button variant="outline" size="icon" onClick={handleExportPDF} title="Exportar PDF">
               <Download className="w-4 h-4" />
+            </Button>
+            
+            <Button variant="outline" size="icon" onClick={handleReset} title="Recomeçar">
+              <RotateCcw className="w-4 h-4" />
             </Button>
             
             <Button variant="outline" size="icon" onClick={handleReset} title="Recomeçar">
@@ -181,7 +195,6 @@ export default function Index() {
             <JobDescriptionPanel
               value={jobDescription}
               onChange={setJobDescription}
-              isRequired={messages.length === 0}
             />
           </div>
           
