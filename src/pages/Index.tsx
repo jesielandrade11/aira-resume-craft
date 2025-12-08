@@ -82,6 +82,12 @@ export default function Index() {
       if (data.projects) {
         merged.projects = data.projects;
       }
+      if (data.styles) {
+        merged.styles = { ...prev.styles, ...data.styles };
+      }
+      if (data.customSections) {
+        merged.customSections = data.customSections;
+      }
       
       return merged;
     });

@@ -43,6 +43,34 @@ export interface ResumeProject {
   link?: string;
 }
 
+export interface ResumeStyles {
+  // Layout
+  layout: 'classic' | 'modern' | 'creative' | 'minimal' | 'executive';
+  columns: 1 | 2;
+  
+  // Colors
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  textColor: string;
+  
+  // Typography
+  headingFont: string;
+  bodyFont: string;
+  headingSize: 'small' | 'medium' | 'large';
+  bodySize: 'small' | 'medium' | 'large';
+  
+  // Spacing
+  sectionSpacing: 'compact' | 'normal' | 'spacious';
+  
+  // Decorations
+  showBorders: boolean;
+  showIcons: boolean;
+  headerStyle: 'simple' | 'banner' | 'sidebar' | 'centered';
+  skillsStyle: 'tags' | 'bars' | 'dots' | 'simple';
+}
+
 export interface ResumeData {
   personalInfo: {
     fullName: string;
@@ -61,6 +89,15 @@ export interface ResumeData {
   languages: ResumeLanguage[];
   certifications: ResumeCertification[];
   projects: ResumeProject[];
+  styles: ResumeStyles;
+  customSections?: ResumeCustomSection[];
+}
+
+export interface ResumeCustomSection {
+  id: string;
+  title: string;
+  content: string;
+  order: number;
 }
 
 // User profile for AI memory
@@ -112,6 +149,25 @@ export interface UserCredits {
   remaining: number;
 }
 
+export const defaultStyles: ResumeStyles = {
+  layout: 'classic',
+  columns: 1,
+  primaryColor: '#1a5f5f',
+  secondaryColor: '#2d8080',
+  accentColor: '#40a0a0',
+  backgroundColor: '#ffffff',
+  textColor: '#1a2a3a',
+  headingFont: 'Crimson Pro',
+  bodyFont: 'Inter',
+  headingSize: 'medium',
+  bodySize: 'medium',
+  sectionSpacing: 'normal',
+  showBorders: true,
+  showIcons: true,
+  headerStyle: 'simple',
+  skillsStyle: 'tags',
+};
+
 // Empty resume template
 export const emptyResume: ResumeData = {
   personalInfo: {
@@ -128,6 +184,8 @@ export const emptyResume: ResumeData = {
   languages: [],
   certifications: [],
   projects: [],
+  styles: defaultStyles,
+  customSections: [],
 };
 
 export const emptyUserProfile: UserProfile = {
