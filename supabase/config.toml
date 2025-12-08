@@ -1,5 +1,8 @@
 project_id = "ofibaexkxacahzftdodb"
 
+[functions.create-checkout]
+verify_jwt = false
+
 [functions.aira-chat]
 verify_jwt = false
 
