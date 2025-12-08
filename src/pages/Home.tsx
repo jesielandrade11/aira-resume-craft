@@ -28,28 +28,67 @@ export default function Home() {
   const handleGenerateWithAI = () => {
     const params = new URLSearchParams();
     params.set('new', 'true');
-    params.set('planning', 'true');
+    
+    // Se tem arquivos anexados ou LinkedIn, vai direto para modo gerar
+    const hasAttachments = uploadedFiles.length > 0 || linkedinUrl.trim();
+    if (hasAttachments) {
+      params.set('mode', 'generate');
+    } else {
+      params.set('planning', 'true');
+    }
     
     if (jobDescription.trim()) {
       params.set('job', encodeURIComponent(jobDescription.trim()));
     }
     
-    let prompt = '';
-    if (initialPrompt.trim()) {
-      prompt = initialPrompt.trim();
-    }
     if (linkedinUrl.trim()) {
       params.set('linkedin', encodeURIComponent(linkedinUrl.trim()));
     }
     
+    // Armazena arquivos no sessionStorage para o Editor recuperar
+    if (uploadedFiles.length > 0) {
+      // Converter arquivos para base64 e armazenar
+      const filePromises = uploadedFiles.map(file => {
+        return new Promise<{name: string, type: string, data: string}>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              name: file.name,
+              type: file.type,
+              data: reader.result as string
+            });
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+      
+      Promise.all(filePromises).then(filesData => {
+        sessionStorage.setItem('aira_attached_files', JSON.stringify(filesData));
+        
+        // Build prompt
+        let prompt = initialPrompt.trim() || '';
+        if (!prompt) {
+          prompt = `Por favor, analise os ${uploadedFiles.length} documento(s) que anexei e extraia as informações para criar um currículo profissional otimizado.`;
+        }
+        if (jobDescription.trim()) {
+          prompt += ` Otimize para a seguinte vaga: ${jobDescription.trim().substring(0, 200)}...`;
+        }
+        params.set('prompt', encodeURIComponent(prompt));
+        
+        navigate(`/editor?${params.toString()}`);
+      });
+      return;
+    }
+    
+    // Build prompt without files
+    let prompt = initialPrompt.trim() || '';
     if (!prompt && (jobDescription.trim() || linkedinUrl.trim())) {
-      prompt = 'Olá! Por favor, analise as informações que forneci e me ajude a criar um currículo otimizado.';
+      prompt = 'Por favor, analise as informações que forneci e gere um currículo profissional otimizado.';
     } else if (!prompt) {
       prompt = 'Olá! Gostaria de criar um currículo profissional. Pode me ajudar?';
     }
     
     params.set('prompt', encodeURIComponent(prompt));
-    
     navigate(`/editor?${params.toString()}`);
   };
 
