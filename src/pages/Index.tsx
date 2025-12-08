@@ -7,6 +7,7 @@ import { JobDescriptionPanel } from '@/components/JobDescriptionPanel';
 import { CreditsDisplay } from '@/components/CreditsDisplay';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { ZoomControls } from '@/components/ZoomControls';
+import { BuyCreditsModal } from '@/components/BuyCreditsModal';
 import { useAIRAChat } from '@/hooks/useAIRAChat';
 import { useResumes } from '@/hooks/useResumes';
 import { Button } from '@/components/ui/button';
@@ -55,6 +56,7 @@ export default function Index() {
 
   const [zoom, setZoom] = useState(1);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+  const [showBuyCreditsModal, setShowBuyCreditsModal] = useState(false);
   const [defaultPanelSize, setDefaultPanelSize] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.chatPanelSize);
     return saved ? parseFloat(saved) : 30;
@@ -106,6 +108,39 @@ export default function Index() {
     localStorage.setItem(STORAGE_KEYS.jobDescription, jobDescription);
   }, [jobDescription]);
 
+  // Handle payment success - add credits
+  useEffect(() => {
+    const payment = searchParams.get('payment');
+    const creditsParam = searchParams.get('credits');
+    
+    if (payment === 'success' && creditsParam) {
+      const creditsToAdd = parseInt(creditsParam, 10);
+      
+      if (creditsToAdd === -1) {
+        // Unlimited subscription
+        setCredits({
+          total: 9999,
+          used: 0,
+          remaining: 9999,
+        });
+        toast.success('🎉 Assinatura ilimitada ativada! Gere quantos currículos quiser.');
+      } else if (creditsToAdd > 0) {
+        setCredits(prev => ({
+          total: prev.total + creditsToAdd,
+          used: prev.used,
+          remaining: prev.remaining + creditsToAdd,
+        }));
+        toast.success(`🎉 ${creditsToAdd} créditos adicionados com sucesso!`);
+      }
+      
+      // Clean URL
+      navigate('/', { replace: true });
+    } else if (payment === 'canceled') {
+      toast.error('Pagamento cancelado.');
+      navigate('/', { replace: true });
+    }
+  }, [searchParams, navigate]);
+
   const handleResumeUpdate = useCallback((data: Partial<ResumeData>) => {
     setResume(prev => {
       const merged = { ...prev };
@@ -152,11 +187,18 @@ export default function Index() {
   }, []);
 
   const handleCreditsUsed = useCallback((amount: number) => {
-    setCredits(prev => ({
-      ...prev,
-      used: prev.used + amount,
-      remaining: Math.max(0, prev.remaining - amount),
-    }));
+    setCredits(prev => {
+      const newRemaining = Math.max(0, prev.remaining - amount);
+      // Show modal when credits run out
+      if (newRemaining <= 0 && prev.remaining > 0) {
+        setTimeout(() => setShowBuyCreditsModal(true), 500);
+      }
+      return {
+        ...prev,
+        used: prev.used + amount,
+        remaining: newRemaining,
+      };
+    });
   }, []);
 
   const { messages, isLoading, mode, setMode, sendMessage, clearChat } = useAIRAChat({
@@ -308,9 +350,14 @@ export default function Index() {
                   <p className="text-sm text-destructive font-medium">
                     Seus créditos acabaram! 
                   </p>
-                  <p className="text-xs text-destructive/80 mt-1">
-                    Você pode continuar editando o currículo manualmente.
-                  </p>
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    className="w-full mt-2 bg-aira-primary hover:bg-aira-primary/90"
+                    onClick={() => setShowBuyCreditsModal(true)}
+                  >
+                    Comprar mais créditos
+                  </Button>
                 </div>
               )}
             </aside>
@@ -357,6 +404,12 @@ export default function Index() {
           </ResizablePanel>
         </ResizablePanelGroup>
       </main>
+      
+      {/* Buy Credits Modal */}
+      <BuyCreditsModal 
+        open={showBuyCreditsModal} 
+        onOpenChange={setShowBuyCreditsModal} 
+      />
     </div>
   );
 }
