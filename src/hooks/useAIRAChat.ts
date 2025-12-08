@@ -24,7 +24,7 @@ export function useAIRAChat({
 }: UseAIRAChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<ChatMode>('planning');
+  const [mode, setMode] = useState<ChatMode>('generate');
 
   const parseAIResponse = useCallback((content: string) => {
     // Check for resume updates
