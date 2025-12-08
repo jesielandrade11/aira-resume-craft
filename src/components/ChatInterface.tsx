@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent } from 'react';
-import { Send, Paperclip, X, FileText, Sparkles, MessageSquare, Zap, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent, useMemo } from 'react';
+import { Send, Paperclip, X, FileText, Sparkles, MessageSquare, Zap, Loader2, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage, ChatAttachment, ResumeData } from '@/types';
@@ -7,6 +7,11 @@ import { ChatMode } from '@/hooks/useAIRAChat';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
+interface ActionButton {
+  label: string;
+  action: string;
+  plan: string;
+}
 interface ChatInterfaceProps {
   messages: ChatMessage[];
   isLoading: boolean;
@@ -250,46 +255,78 @@ export function ChatInterface({
           </div>
         )}
         
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={cn(
-              'flex',
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            )}
-          >
+        {messages.map((message) => {
+          // Parse action buttons from assistant messages
+          let displayContent = message.content;
+          let actionButton: ActionButton | null = null;
+          
+          if (message.role === 'assistant') {
+            const actionMatch = message.content.match(/```action_button\s*\n([\s\S]*?)\n```/);
+            if (actionMatch) {
+              try {
+                actionButton = JSON.parse(actionMatch[1]);
+                displayContent = message.content.replace(/```action_button\s*\n[\s\S]*?\n```/g, '').trim();
+              } catch (e) {
+                console.error('Failed to parse action button:', e);
+              }
+            }
+          }
+          
+          return (
             <div
+              key={message.id}
               className={cn(
-                'max-w-[80%] rounded-2xl px-4 py-3',
-                message.role === 'user'
-                  ? 'bg-aira-primary text-white rounded-br-md'
-                  : 'bg-chat-message text-foreground rounded-bl-md'
+                'flex flex-col',
+                message.role === 'user' ? 'items-end' : 'items-start'
               )}
             >
-              {message.attachments && message.attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {message.attachments.map((att) => (
-                    <div key={att.id} className="relative">
-                      {att.type === 'image' ? (
-                        <img 
-                          src={att.url} 
-                          alt={att.name} 
-                          className="max-w-[150px] max-h-[100px] rounded object-cover"
-                        />
-                      ) : (
-                        <div className="flex items-center gap-2 bg-white/10 rounded px-2 py-1 text-xs">
-                          <FileText className="w-3 h-3" />
-                          <span className="truncate max-w-[100px]">{att.name}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+              <div
+                className={cn(
+                  'max-w-[80%] rounded-2xl px-4 py-3',
+                  message.role === 'user'
+                    ? 'bg-aira-primary text-white rounded-br-md'
+                    : 'bg-chat-message text-foreground rounded-bl-md'
+                )}
+              >
+                {message.attachments && message.attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {message.attachments.map((att) => (
+                      <div key={att.id} className="relative">
+                        {att.type === 'image' ? (
+                          <img 
+                            src={att.url} 
+                            alt={att.name} 
+                            className="max-w-[150px] max-h-[100px] rounded object-cover"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2 bg-white/10 rounded px-2 py-1 text-xs">
+                            <FileText className="w-3 h-3" />
+                            <span className="truncate max-w-[100px]">{att.name}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-sm whitespace-pre-wrap">{displayContent}</p>
+              </div>
+              
+              {/* Action Button */}
+              {actionButton && (
+                <Button
+                  onClick={() => {
+                    onModeChange('generate');
+                    onSendMessage(`Implemente as mudanças conforme o plano: ${actionButton.plan}`, undefined, 'generate');
+                  }}
+                  className="mt-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg"
+                >
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  {actionButton.label}
+                </Button>
               )}
-              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
             </div>
-          </div>
-        ))}
+          );
+        })}
         
         {(isLoading || isExtractingPdf) && (
           <div className="flex justify-start">
