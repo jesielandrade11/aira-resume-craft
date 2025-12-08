@@ -23,7 +23,6 @@ export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   const handleGenerateWithAI = () => {
-    // Planejamento gasta 0.5 créditos
     const params = new URLSearchParams();
     params.set('new', 'true');
     params.set('planning', 'true'); // Flag para indicar que é planejamento (0.5 créditos)
@@ -31,12 +30,24 @@ export default function Home() {
     if (jobDescription.trim()) {
       params.set('job', encodeURIComponent(jobDescription.trim()));
     }
+    
+    // Build initial prompt from user inputs
+    let prompt = '';
     if (initialPrompt.trim()) {
-      params.set('prompt', encodeURIComponent(initialPrompt.trim()));
+      prompt = initialPrompt.trim();
     }
     if (linkedinUrl.trim()) {
       params.set('linkedin', encodeURIComponent(linkedinUrl.trim()));
     }
+    
+    // Always set a prompt to trigger the chat
+    if (!prompt && (jobDescription.trim() || linkedinUrl.trim())) {
+      prompt = 'Olá! Por favor, analise as informações que forneci e me ajude a criar um currículo otimizado.';
+    } else if (!prompt) {
+      prompt = 'Olá! Gostaria de criar um currículo profissional. Pode me ajudar?';
+    }
+    
+    params.set('prompt', encodeURIComponent(prompt));
     
     navigate(`/editor?${params.toString()}`);
   };
@@ -78,7 +89,8 @@ export default function Home() {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const hasContent = jobDescription.trim() || initialPrompt.trim() || linkedinUrl.trim() || uploadedFiles.length > 0;
+  // Permitir gerar mesmo sem conteúdo (currículo em branco)
+  const hasContent = true;
 
   return (
     <div className="min-h-screen bg-background">
