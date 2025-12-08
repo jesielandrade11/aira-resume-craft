@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowRight, Plus, Briefcase, Linkedin, Upload, FileText, Link, Coins } from 'lucide-react';
+import { Sparkles, ArrowRight, Plus, Briefcase, Linkedin, Upload, FileText, Coins, Paperclip, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { resumeTemplates } from '@/data/resumeTemplates';
 import { useResumes } from '@/hooks/useResumes';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -21,17 +22,18 @@ export default function Home() {
   const [initialPrompt, setInitialPrompt] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [linkedinPopoverOpen, setLinkedinPopoverOpen] = useState(false);
+  const [attachPopoverOpen, setAttachPopoverOpen] = useState(false);
 
   const handleGenerateWithAI = () => {
     const params = new URLSearchParams();
     params.set('new', 'true');
-    params.set('planning', 'true'); // Flag para indicar que é planejamento (0.5 créditos)
+    params.set('planning', 'true');
     
     if (jobDescription.trim()) {
       params.set('job', encodeURIComponent(jobDescription.trim()));
     }
     
-    // Build initial prompt from user inputs
     let prompt = '';
     if (initialPrompt.trim()) {
       prompt = initialPrompt.trim();
@@ -40,7 +42,6 @@ export default function Home() {
       params.set('linkedin', encodeURIComponent(linkedinUrl.trim()));
     }
     
-    // Always set a prompt to trigger the chat
     if (!prompt && (jobDescription.trim() || linkedinUrl.trim())) {
       prompt = 'Olá! Por favor, analise as informações que forneci e me ajude a criar um currículo otimizado.';
     } else if (!prompt) {
@@ -82,6 +83,7 @@ export default function Home() {
       const newFiles = Array.from(files);
       setUploadedFiles(prev => [...prev, ...newFiles]);
       toast.success(`${newFiles.length} arquivo(s) adicionado(s)`);
+      setAttachPopoverOpen(false);
     }
   };
 
@@ -89,8 +91,12 @@ export default function Home() {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Permitir gerar mesmo sem conteúdo (currículo em branco)
-  const hasContent = true;
+  const handleLinkedinSave = () => {
+    if (linkedinUrl.trim()) {
+      toast.success('LinkedIn adicionado');
+    }
+    setLinkedinPopoverOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -159,93 +165,157 @@ export default function Home() {
                   />
                 </div>
                 
-                {/* About You */}
+                {/* About You with inline icons */}
                 <div>
                   <Label className="text-sm font-medium text-foreground mb-1.5 block">
                     Conte sobre você
                   </Label>
-                  <Textarea
-                    placeholder="Ex: Sou desenvolvedor com 5 anos de experiência em React e Node.js, trabalhei em startups e empresas grandes..."
-                    value={initialPrompt}
-                    onChange={(e) => setInitialPrompt(e.target.value)}
-                    className="min-h-[80px] resize-none"
-                  />
-                </div>
-                
-                {/* LinkedIn URL */}
-                <div>
-                  <Label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-2">
-                    <Linkedin className="w-4 h-4 text-[#0077B5]" />
-                    LinkedIn (opcional)
-                  </Label>
-                  <Input
-                    type="url"
-                    placeholder="https://linkedin.com/in/seu-perfil"
-                    value={linkedinUrl}
-                    onChange={(e) => setLinkedinUrl(e.target.value)}
-                    className="h-10"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    A IA irá extrair automaticamente informações do seu perfil
-                  </p>
-                </div>
-                
-                {/* File Upload */}
-                <div>
-                  <Label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Anexar documentos (opcional)
-                  </Label>
-                  <div className="flex gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      accept=".pdf,.doc,.docx,.txt"
-                      onChange={handleFileUpload}
-                      className="hidden"
+                  <div className="relative">
+                    <Textarea
+                      placeholder="Ex: Sou desenvolvedor com 5 anos de experiência em React e Node.js, trabalhei em startups e empresas grandes..."
+                      value={initialPrompt}
+                      onChange={(e) => setInitialPrompt(e.target.value)}
+                      className="min-h-[100px] resize-none pb-12"
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="gap-2"
-                    >
-                      <Upload className="w-4 h-4" />
-                      Adicionar arquivos
-                    </Button>
-                  </div>
-                  {uploadedFiles.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {uploadedFiles.map((file, index) => (
-                        <div 
-                          key={index}
-                          className="flex items-center justify-between bg-muted px-3 py-1.5 rounded text-sm"
-                        >
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-muted-foreground" />
-                            <span className="truncate max-w-[200px]">{file.name}</span>
-                          </div>
+                    {/* Icons bar inside textarea */}
+                    <div className="absolute bottom-2 left-2 flex items-center gap-1">
+                      {/* LinkedIn Popover */}
+                      <Popover open={linkedinPopoverOpen} onOpenChange={setLinkedinPopoverOpen}>
+                        <PopoverTrigger asChild>
                           <button
-                            onClick={() => removeFile(index)}
-                            className="text-muted-foreground hover:text-destructive transition-colors"
+                            type="button"
+                            className={`p-2 rounded-md hover:bg-muted transition-colors ${linkedinUrl ? 'text-[#0077B5] bg-[#0077B5]/10' : 'text-muted-foreground'}`}
+                            title="Adicionar LinkedIn"
                           >
-                            ×
+                            <Linkedin className="w-5 h-5" />
                           </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80" align="start">
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <Linkedin className="w-5 h-5 text-[#0077B5]" />
+                              <span className="font-medium text-sm">LinkedIn</span>
+                            </div>
+                            <Input
+                              type="url"
+                              placeholder="https://linkedin.com/in/seu-perfil"
+                              value={linkedinUrl}
+                              onChange={(e) => setLinkedinUrl(e.target.value)}
+                              className="h-9"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              A IA irá extrair informações do seu perfil
+                            </p>
+                            <div className="flex justify-end gap-2">
+                              {linkedinUrl && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => { setLinkedinUrl(''); setLinkedinPopoverOpen(false); }}
+                                >
+                                  Remover
+                                </Button>
+                              )}
+                              <Button size="sm" onClick={handleLinkedinSave}>
+                                {linkedinUrl ? 'Salvar' : 'Fechar'}
+                              </Button>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
+                      {/* Attach Files Popover */}
+                      <Popover open={attachPopoverOpen} onOpenChange={setAttachPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className={`p-2 rounded-md hover:bg-muted transition-colors ${uploadedFiles.length > 0 ? 'text-primary bg-primary/10' : 'text-muted-foreground'}`}
+                            title="Anexar documentos"
+                          >
+                            <Paperclip className="w-5 h-5" />
+                            {uploadedFiles.length > 0 && (
+                              <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center">
+                                {uploadedFiles.length}
+                              </span>
+                            )}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80" align="start">
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-5 h-5 text-muted-foreground" />
+                              <span className="font-medium text-sm">Anexar documentos</span>
+                            </div>
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              multiple
+                              accept=".pdf,.doc,.docx,.txt"
+                              onChange={handleFileUpload}
+                              className="hidden"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="w-full gap-2"
+                            >
+                              <Upload className="w-4 h-4" />
+                              Adicionar arquivos
+                            </Button>
+                            {uploadedFiles.length > 0 && (
+                              <div className="space-y-1 max-h-32 overflow-y-auto">
+                                {uploadedFiles.map((file, index) => (
+                                  <div 
+                                    key={index}
+                                    className="flex items-center justify-between bg-muted px-3 py-1.5 rounded text-sm"
+                                  >
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                      <span className="truncate">{file.name}</span>
+                                    </div>
+                                    <button
+                                      onClick={() => removeFile(index)}
+                                      className="text-muted-foreground hover:text-destructive transition-colors ml-2"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              Currículos antigos, certificados, cartas...
+                            </p>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  
+                  {/* Show indicators when items are added */}
+                  {(linkedinUrl || uploadedFiles.length > 0) && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {linkedinUrl && (
+                        <div className="inline-flex items-center gap-1.5 bg-[#0077B5]/10 text-[#0077B5] px-2 py-1 rounded-full text-xs">
+                          <Linkedin className="w-3 h-3" />
+                          <span>LinkedIn adicionado</span>
                         </div>
-                      ))}
+                      )}
+                      {uploadedFiles.length > 0 && (
+                        <div className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-2 py-1 rounded-full text-xs">
+                          <Paperclip className="w-3 h-3" />
+                          <span>{uploadedFiles.length} arquivo(s)</span>
+                        </div>
+                      )}
                     </div>
                   )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Currículos antigos, certificados, cartas de recomendação...
-                  </p>
                 </div>
               </div>
               
               <Button 
                 onClick={handleGenerateWithAI} 
                 className="w-full h-12 text-base font-semibold gap-2"
-                disabled={!hasContent}
               >
                 <Sparkles className="w-5 h-5" />
                 Gerar Currículo com IA
