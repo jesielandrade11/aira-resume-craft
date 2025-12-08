@@ -26,7 +26,7 @@ const STORAGE_KEYS = {
   chatPanelSize: 'aira_chat_panel_size',
 };
 
-const INITIAL_CREDITS = 5;
+const INITIAL_CREDITS = 99999; // Ilimitado para testes
 
 export default function Editor() {
   const [searchParams] = useSearchParams();
@@ -37,6 +37,8 @@ export default function Editor() {
   const templateId = searchParams.get('template');
   const initialJob = searchParams.get('job');
   const initialPrompt = searchParams.get('prompt');
+  const linkedinUrl = searchParams.get('linkedin');
+  const isPlanning = searchParams.get('planning') === 'true';
 
   const [resume, setResume] = useState<ResumeData>(() => {
     // If template specified, use template styles
@@ -75,12 +77,12 @@ export default function Editor() {
   });
 
   const [zoom, setZoom] = useState(1);
-  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [showBuyCreditsModal, setShowBuyCreditsModal] = useState(false);
   const [defaultPanelSize, setDefaultPanelSize] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.chatPanelSize);
-    return saved ? parseFloat(saved) : 30;
+    return saved ? Math.max(parseFloat(saved), 30) : 35; // Mínimo 30%
   });
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false); // Always start expanded
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const chatPanelRef = useRef<ImperativePanelHandle>(null);
@@ -228,17 +230,38 @@ export default function Editor() {
     onCreditsUsed: handleCreditsUsed,
   });
 
-  // Auto-send initial prompt if provided via URL
+  // Auto-send initial prompt if provided via URL (with LinkedIn scraping if provided)
   useEffect(() => {
-    if (initialPrompt && !hasAutoSentPrompt && !isLoading) {
-      const decodedPrompt = decodeURIComponent(initialPrompt);
-      setHasAutoSentPrompt(true);
-      // Small delay to ensure chat is ready
-      setTimeout(() => {
-        sendMessage(decodedPrompt);
-      }, 500);
-    }
-  }, [initialPrompt, hasAutoSentPrompt, isLoading, sendMessage]);
+    const processInitialData = async () => {
+      if (hasAutoSentPrompt || isLoading) return;
+      
+      // Build prompt with available data
+      let fullPrompt = '';
+      
+      if (linkedinUrl) {
+        const decodedLinkedin = decodeURIComponent(linkedinUrl);
+        fullPrompt += `[LINKEDIN URL PARA SCRAPING: ${decodedLinkedin}]\n\n`;
+      }
+      
+      if (initialPrompt) {
+        const decodedPrompt = decodeURIComponent(initialPrompt);
+        fullPrompt += decodedPrompt;
+      } else if (linkedinUrl || initialJob) {
+        fullPrompt += 'Por favor, analise as informações fornecidas e gere um currículo otimizado para a vaga.';
+      }
+      
+      if (fullPrompt) {
+        setHasAutoSentPrompt(true);
+        // Small delay to ensure chat is ready
+        setTimeout(() => {
+          // Use planning mode if isPlanning flag is set
+          sendMessage(fullPrompt, undefined, isPlanning ? 'planning' : 'generate');
+        }, 500);
+      }
+    };
+    
+    processInitialData();
+  }, [initialPrompt, linkedinUrl, initialJob, isPlanning, hasAutoSentPrompt, isLoading, sendMessage]);
 
   const handleReset = () => {
     if (confirm('Tem certeza que deseja limpar tudo e começar do zero?')) {
