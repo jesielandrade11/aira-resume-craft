@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        serif: ['Crimson Pro', 'Georgia', 'serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,6 +61,27 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // AIRA specific colors
+        aira: {
+          primary: "hsl(var(--aira-primary))",
+          secondary: "hsl(var(--aira-secondary))",
+          accent: "hsl(var(--aira-accent))",
+        },
+        chat: {
+          bg: "hsl(var(--chat-bg))",
+          message: "hsl(var(--chat-message))",
+          input: "hsl(var(--chat-input))",
+          border: "hsl(var(--chat-border))",
+        },
+        resume: {
+          bg: "hsl(var(--resume-bg))",
+          primary: "hsl(var(--resume-primary))",
+          secondary: "hsl(var(--resume-secondary))",
+          muted: "hsl(var(--resume-muted))",
+          accent: "hsl(var(--resume-accent))",
+          border: "hsl(var(--resume-border))",
+          foreground: "hsl(var(--resume-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,20 +90,12 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {
