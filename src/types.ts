@@ -132,6 +132,10 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   attachments?: ChatAttachment[];
+  replyTo?: {
+    id: string;
+    content: string;
+  };
 }
 
 export interface ChatAttachment {

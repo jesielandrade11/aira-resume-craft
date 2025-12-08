@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent, useMemo } from 'react';
-import { Send, Paperclip, X, FileText, Sparkles, MessageSquare, Zap, Loader2, Wand2 } from 'lucide-react';
+import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent } from 'react';
+import { Send, Paperclip, X, FileText, Sparkles, MessageSquare, Zap, Loader2, Wand2, Reply, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage, ChatAttachment, ResumeData } from '@/types';
@@ -12,15 +12,18 @@ interface ActionButton {
   action: string;
   plan: string;
 }
+
 interface ChatInterfaceProps {
   messages: ChatMessage[];
   isLoading: boolean;
   mode: ChatMode;
   onModeChange: (mode: ChatMode) => void;
-  onSendMessage: (content: string, attachments?: ChatAttachment[], overrideMode?: ChatMode) => void;
+  onSendMessage: (content: string, attachments?: ChatAttachment[], overrideMode?: ChatMode, replyTo?: { id: string; content: string }) => void;
   disabled?: boolean;
   jobDescription?: string;
   onResumeUpdate?: (data: Partial<ResumeData>) => void;
+  onUndo?: () => void;
+  canUndo?: boolean;
 }
 
 export function ChatInterface({ 
@@ -31,11 +34,14 @@ export function ChatInterface({
   onSendMessage, 
   disabled,
   jobDescription,
-  onResumeUpdate 
+  onResumeUpdate,
+  onUndo,
+  canUndo = false
 }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; content: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -93,27 +99,27 @@ export function ChatInterface({
     const pdfAttachment = attachments.find(a => a.name.toLowerCase().endsWith('.pdf'));
     
     if (pdfAttachment && pdfAttachment.base64 && onResumeUpdate) {
-      // Extract PDF and update resume directly
       const extractedData = await extractPdfContent(pdfAttachment.base64);
       
       if (extractedData) {
         onResumeUpdate(extractedData);
-        
-        // Send a message to confirm the extraction
         onSendMessage(
           input.trim() || `Importei meu currículo do arquivo "${pdfAttachment.name}". Por favor, revise e me diga o que você acha.`,
           undefined,
-          overrideMode || 'generate'
+          overrideMode || 'generate',
+          replyingTo || undefined
         );
         setInput('');
         setAttachments([]);
+        setReplyingTo(null);
         return;
       }
     }
     
-    onSendMessage(input.trim(), attachments.length > 0 ? attachments : undefined, overrideMode);
+    onSendMessage(input.trim(), attachments.length > 0 ? attachments : undefined, overrideMode, replyingTo || undefined);
     setInput('');
     setAttachments([]);
+    setReplyingTo(null);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -165,7 +171,7 @@ export function ChatInterface({
           type: isImage ? 'image' : 'document',
           name: file.name,
           url: URL.createObjectURL(file),
-          base64: base64, // Store base64 for both images and PDFs
+          base64: base64,
         };
         
         setAttachments(prev => [...prev, attachment]);
@@ -184,6 +190,18 @@ export function ChatInterface({
     setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
+  const handleReply = (message: ChatMessage) => {
+    setReplyingTo({ 
+      id: message.id, 
+      content: message.content.substring(0, 100) + (message.content.length > 100 ? '...' : '')
+    });
+    textareaRef.current?.focus();
+  };
+
+  const truncateContent = (content: string, maxLength: number = 50) => {
+    return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
+  };
+
   return (
     <div className="flex flex-col h-full bg-chat-bg">
       {/* Header */}
@@ -198,6 +216,20 @@ export function ChatInterface({
               <p className="text-xs text-muted-foreground">Sua arquiteta de currículos</p>
             </div>
           </div>
+          
+          {/* Undo Button */}
+          {canUndo && onUndo && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onUndo}
+              className="gap-2 text-amber-600 border-amber-300 hover:bg-amber-50"
+              title="Desfazer última alteração"
+            >
+              <Undo2 className="w-4 h-4" />
+              Desfazer
+            </Button>
+          )}
         </div>
         
         {/* Mode Toggle */}
@@ -213,7 +245,6 @@ export function ChatInterface({
           >
             <MessageSquare className="w-4 h-4" />
             <span>Planejar</span>
-            <span className="text-xs opacity-70">(0.2 crédito)</span>
           </button>
           <button
             onClick={() => onModeChange('generate')}
@@ -226,7 +257,6 @@ export function ChatInterface({
           >
             <Zap className="w-4 h-4" />
             <span>Gerar</span>
-            <span className="text-xs opacity-70">(1 crédito)</span>
           </button>
         </div>
       </div>
@@ -241,17 +271,9 @@ export function ChatInterface({
             <h3 className="text-lg font-medium text-foreground mb-2">Olá! Eu sou a AIRA</h3>
             <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-4">
               {mode === 'planning' 
-                ? "No modo Planejar, vamos conversar sobre suas experiências e objetivos. Faça perguntas, explore ideias!"
-                : "No modo Gerar, vou criar ou modificar seu currículo diretamente com base no que você pedir."}
+                ? "No modo Planejar, vamos conversar sobre suas experiências e objetivos."
+                : "No modo Gerar, vou criar ou modificar seu currículo diretamente."}
             </p>
-            <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 max-w-xs mx-auto space-y-2">
-              <div>
-                <strong>💡 Dica:</strong> Use <strong>Planejar</strong> para explorar e decidir. Use <strong>Gerar</strong> quando souber exatamente o que quer.
-              </div>
-              <div>
-                <strong>📄 PDF:</strong> Anexe um currículo em PDF para extrair automaticamente todas as informações!
-              </div>
-            </div>
           </div>
         )}
         
@@ -260,55 +282,104 @@ export function ChatInterface({
           let displayContent = message.content;
           let actionButton: ActionButton | null = null;
           
+          // Remove resume_update blocks from display
+          displayContent = displayContent.replace(/```resume_update[\s\S]*?```/g, '').trim();
+          
           if (message.role === 'assistant') {
             const actionMatch = message.content.match(/```action_button\s*\n([\s\S]*?)\n```/);
             if (actionMatch) {
               try {
                 actionButton = JSON.parse(actionMatch[1]);
-                displayContent = message.content.replace(/```action_button\s*\n[\s\S]*?\n```/g, '').trim();
+                displayContent = displayContent.replace(/```action_button\s*\n[\s\S]*?\n```/g, '').trim();
               } catch (e) {
                 console.error('Failed to parse action button:', e);
               }
             }
           }
           
+          // Find referenced message
+          const referencedMessage = message.replyTo 
+            ? messages.find(m => m.id === message.replyTo?.id) 
+            : null;
+          
           return (
             <div
               key={message.id}
               className={cn(
-                'flex flex-col',
+                'flex flex-col group',
                 message.role === 'user' ? 'items-end' : 'items-start'
               )}
             >
-              <div
-                className={cn(
-                  'max-w-[80%] rounded-2xl px-4 py-3',
-                  message.role === 'user'
-                    ? 'bg-aira-primary text-white rounded-br-md'
-                    : 'bg-chat-message text-foreground rounded-bl-md'
+              {/* Reply Reference */}
+              {message.replyTo && (
+                <div 
+                  className={cn(
+                    "flex items-center gap-1 text-xs text-muted-foreground mb-1 px-2",
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                  )}
+                >
+                  <Reply className="w-3 h-3" />
+                  <span className="truncate max-w-[200px]">
+                    {message.replyTo.content}
+                  </span>
+                </div>
+              )}
+              
+              <div className="flex items-start gap-2">
+                {/* Reply button for assistant messages */}
+                {message.role === 'assistant' && (
+                  <button
+                    onClick={() => handleReply(message)}
+                    className="opacity-0 group-hover:opacity-100 p-1 mt-2 text-muted-foreground hover:text-foreground transition-opacity"
+                    title="Responder a esta mensagem"
+                  >
+                    <Reply className="w-4 h-4" />
+                  </button>
                 )}
-              >
-                {message.attachments && message.attachments.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {message.attachments.map((att) => (
-                      <div key={att.id} className="relative">
-                        {att.type === 'image' ? (
-                          <img 
-                            src={att.url} 
-                            alt={att.name} 
-                            className="max-w-[150px] max-h-[100px] rounded object-cover"
-                          />
-                        ) : (
-                          <div className="flex items-center gap-2 bg-white/10 rounded px-2 py-1 text-xs">
-                            <FileText className="w-3 h-3" />
-                            <span className="truncate max-w-[100px]">{att.name}</span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                
+                <div
+                  className={cn(
+                    'max-w-[80%] rounded-2xl px-4 py-3',
+                    message.role === 'user'
+                      ? 'bg-aira-primary text-white rounded-br-md'
+                      : 'bg-chat-message text-foreground rounded-bl-md'
+                  )}
+                >
+                  {message.attachments && message.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {message.attachments.map((att) => (
+                        <div key={att.id} className="relative">
+                          {att.type === 'image' ? (
+                            <img 
+                              src={att.url} 
+                              alt={att.name} 
+                              className="max-w-[150px] max-h-[100px] rounded object-cover"
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2 bg-white/10 rounded px-2 py-1 text-xs">
+                              <FileText className="w-3 h-3" />
+                              <span className="truncate max-w-[100px]">{att.name}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {displayContent && (
+                    <p className="text-sm whitespace-pre-wrap">{displayContent}</p>
+                  )}
+                </div>
+                
+                {/* Reply button for user messages */}
+                {message.role === 'user' && (
+                  <button
+                    onClick={() => handleReply(message)}
+                    className="opacity-0 group-hover:opacity-100 p-1 mt-2 text-muted-foreground hover:text-foreground transition-opacity"
+                    title="Responder a esta mensagem"
+                  >
+                    <Reply className="w-4 h-4" />
+                  </button>
                 )}
-                <p className="text-sm whitespace-pre-wrap">{displayContent}</p>
               </div>
               
               {/* Action Button */}
@@ -349,6 +420,22 @@ export function ChatInterface({
         
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Reply Preview */}
+      {replyingTo && (
+        <div className="px-4 py-2 border-t border-chat-border bg-muted/50 flex items-center gap-2">
+          <Reply className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground flex-1 truncate">
+            Respondendo: {replyingTo.content}
+          </span>
+          <button
+            onClick={() => setReplyingTo(null)}
+            className="p-1 hover:bg-muted rounded"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Attachments Preview */}
       {attachments.length > 0 && (

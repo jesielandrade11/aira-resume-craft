@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { ChatMessage, ChatAttachment, ResumeData, UserProfile } from '@/types';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aira-chat`;
@@ -14,6 +14,8 @@ interface UseAIRAChatProps {
   onCreditsUsed: (amount: number) => void;
 }
 
+const MAX_UNDO_HISTORY = 10;
+
 export function useAIRAChat({
   resume,
   userProfile,
@@ -25,14 +27,37 @@ export function useAIRAChat({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<ChatMode>('generate');
+  
+  // Undo history - stores previous resume states
+  const undoHistory = useRef<ResumeData[]>([]);
 
-  const parseAIResponse = useCallback((content: string) => {
+  const pushToUndoHistory = useCallback((currentResume: ResumeData) => {
+    undoHistory.current = [
+      ...undoHistory.current.slice(-MAX_UNDO_HISTORY + 1),
+      JSON.parse(JSON.stringify(currentResume))
+    ];
+  }, []);
+
+  const canUndo = undoHistory.current.length > 0;
+
+  const undo = useCallback(() => {
+    if (undoHistory.current.length === 0) return;
+    
+    const previousState = undoHistory.current.pop();
+    if (previousState) {
+      onResumeUpdate(previousState);
+    }
+  }, [onResumeUpdate]);
+
+  const parseAIResponse = useCallback((content: string, currentResume: ResumeData) => {
     // Check for resume updates
     const resumeMatch = content.match(/```resume_update\n([\s\S]*?)\n```/);
     if (resumeMatch) {
       try {
         const updateData = JSON.parse(resumeMatch[1]);
         if (updateData.action === 'update' && updateData.data) {
+          // Save current state to undo history before updating
+          pushToUndoHistory(currentResume);
           onResumeUpdate(updateData.data);
         }
       } catch (e) {
@@ -58,9 +83,14 @@ export function useAIRAChat({
       .replace(/```resume_update\n[\s\S]*?\n```/g, '')
       .replace(/```profile_update\n[\s\S]*?\n```/g, '')
       .trim();
-  }, [onResumeUpdate, onProfileUpdate]);
+  }, [onResumeUpdate, onProfileUpdate, pushToUndoHistory]);
 
-  const sendMessage = useCallback(async (content: string, attachments?: ChatAttachment[], overrideMode?: ChatMode) => {
+  const sendMessage = useCallback(async (
+    content: string, 
+    attachments?: ChatAttachment[], 
+    overrideMode?: ChatMode,
+    replyTo?: { id: string; content: string }
+  ) => {
     const currentMode = overrideMode || mode;
     
     const userMessage: ChatMessage = {
@@ -69,6 +99,7 @@ export function useAIRAChat({
       content,
       timestamp: new Date(),
       attachments,
+      replyTo,
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -88,22 +119,28 @@ export function useAIRAChat({
         if (lastMsg?.role === 'assistant') {
           return prev.map((m, i) => 
             i === prev.length - 1 
-              ? { ...m, content: parseAIResponse(assistantContent) }
+              ? { ...m, content: parseAIResponse(assistantContent, resume) }
               : m
           );
         }
         return [...prev, {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: parseAIResponse(assistantContent),
+          content: parseAIResponse(assistantContent, resume),
           timestamp: new Date(),
         }];
       });
     };
 
     try {
+      // Build message content with reply context
+      let messageContent = content;
+      if (replyTo) {
+        messageContent = `[Respondendo à mensagem: "${replyTo.content}"]\n\n${content}`;
+      }
+
       // Prepare messages for API (only last 20 for context window)
-      const apiMessages = [...messages, userMessage]
+      const apiMessages = [...messages, { ...userMessage, content: messageContent }]
         .slice(-20)
         .map(msg => ({
           role: msg.role,
@@ -208,5 +245,7 @@ export function useAIRAChat({
     setMode,
     sendMessage,
     clearChat,
+    canUndo,
+    undo,
   };
 }

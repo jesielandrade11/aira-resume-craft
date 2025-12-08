@@ -8,13 +8,14 @@ import { CreditsDisplay } from '@/components/CreditsDisplay';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { ZoomControls } from '@/components/ZoomControls';
 import { BuyCreditsModal } from '@/components/BuyCreditsModal';
+import { PhotoUpload } from '@/components/PhotoUpload';
 import { useAIRAChat } from '@/hooks/useAIRAChat';
 import { useResumes } from '@/hooks/useResumes';
 import { getTemplateById } from '@/data/resumeTemplates';
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
-import { User, Download, RotateCcw, Eye, Sparkles, Save, Home, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { User, Download, RotateCcw, Eye, Sparkles, Save, Home, PanelLeftClose, PanelLeft, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -222,7 +223,7 @@ export default function Editor() {
     });
   }, []);
 
-  const { messages, isLoading, mode, setMode, sendMessage, clearChat } = useAIRAChat({
+  const { messages, isLoading, mode, setMode, sendMessage, clearChat, canUndo, undo } = useAIRAChat({
     resume,
     userProfile,
     jobDescription,
@@ -371,6 +372,11 @@ export default function Editor() {
               <span className="hidden sm:inline">Exemplo</span>
             </Button>
             
+            <PhotoUpload
+              currentPhoto={resume.personalInfo.photo}
+              onPhotoChange={(photo) => handleResumeUpdate({ personalInfo: { ...resume.personalInfo, photo } })}
+            />
+            
             <UserProfileModal profile={userProfile}>
               <Button variant="outline" size="icon" title="Seu Perfil">
                 <User className="w-4 h-4" />
@@ -442,6 +448,8 @@ export default function Editor() {
                   disabled={noCredits}
                   jobDescription={jobDescription}
                   onResumeUpdate={handleResumeUpdate}
+                  onUndo={undo}
+                  canUndo={canUndo}
                 />
               </div>
               
