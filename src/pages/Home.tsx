@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sparkles, ArrowRight, Plus, Briefcase, Linkedin, Upload, FileText, Coins, Paperclip, X, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,6 +18,7 @@ import airaAvatar from '@/assets/aira-avatar.png';
 
 export default function Home() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { resumes, isLoading, deleteResume, duplicateResume } = useResumes();
   const { user, isAuthenticated, signOut } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -29,7 +30,19 @@ export default function Home() {
   const [linkedinPopoverOpen, setLinkedinPopoverOpen] = useState(false);
   const [attachPopoverOpen, setAttachPopoverOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalView, setAuthModalView] = useState<'login' | 'reset' | 'new-password'>('login');
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  // Check for password reset flow
+  useEffect(() => {
+    if (searchParams.get('reset') === 'true') {
+      setAuthModalView('new-password');
+      setAuthModalOpen(true);
+      // Clean the URL
+      searchParams.delete('reset');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleLogout = async () => {
     const { error } = await signOut();
@@ -45,6 +58,7 @@ export default function Home() {
       action();
     } else {
       setPendingAction(() => action);
+      setAuthModalView('login');
       setAuthModalOpen(true);
     }
   };
@@ -207,7 +221,7 @@ export default function Home() {
                 </Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" onClick={() => setAuthModalOpen(true)} className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setAuthModalView('login'); setAuthModalOpen(true); }} className="gap-2">
                 <User className="w-4 h-4" />
                 Entrar
               </Button>
@@ -218,6 +232,7 @@ export default function Home() {
             open={authModalOpen} 
             onOpenChange={setAuthModalOpen}
             onSuccess={handleAuthSuccess}
+            defaultView={authModalView}
           />
         </div>
       </header>
