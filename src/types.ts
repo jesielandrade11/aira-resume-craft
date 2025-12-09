@@ -101,6 +101,28 @@ export interface ResumeCustomSection {
 }
 
 // User profile for AI memory
+export interface UserProfileExperience {
+  company: string;
+  position: string;
+  startDate: string;
+  endDate: string;
+  current: boolean;
+  description: string;
+}
+
+export interface UserProfileEducation {
+  institution: string;
+  degree: string;
+  field: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface UserProfileLanguage {
+  name: string;
+  level: string;
+}
+
 export interface UserProfile {
   id: string;
   fullName: string;
@@ -110,10 +132,10 @@ export interface UserProfile {
   linkedin?: string;
   website?: string;
   bio: string;
-  experiences: string[];
+  experiences: UserProfileExperience[];
   skills: string[];
-  education: string[];
-  languages: string[];
+  education: UserProfileEducation[];
+  languages: UserProfileLanguage[];
   certifications: string[];
   projects: string[];
   preferences: {

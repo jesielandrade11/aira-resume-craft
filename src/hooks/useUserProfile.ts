@@ -113,17 +113,18 @@ export function useUserProfile() {
         location: updatedProfile.location || null,
         linkedin: updatedProfile.linkedin || null,
         bio: updatedProfile.bio || null,
-        experiences: updatedProfile.experiences || [],
+        experiences: JSON.parse(JSON.stringify(updatedProfile.experiences || [])),
         skills: updatedProfile.skills || [],
-        education: updatedProfile.education || [],
-        languages: updatedProfile.languages || [],
+        education: JSON.parse(JSON.stringify(updatedProfile.education || [])),
+        languages: JSON.parse(JSON.stringify(updatedProfile.languages || [])),
         certifications: updatedProfile.certifications || [],
         preferences: updatedProfile.preferences || {},
       };
 
       const { error } = await supabase
         .from('user_profiles')
-        .upsert(dbData, { onConflict: 'user_id' });
+        .update(dbData)
+        .eq('user_id', user.id);
 
       if (error) throw error;
       
