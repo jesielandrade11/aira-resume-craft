@@ -91,7 +91,7 @@ export function UserProfileModal({ profile, children }: UserProfileModalProps) {
                     {profile.experiences.map((exp, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="text-muted-foreground">•</span>
-                        <span>{exp}</span>
+                        <span>{exp.position} - {exp.company}</span>
                       </li>
                     ))}
                   </ul>
@@ -123,7 +123,7 @@ export function UserProfileModal({ profile, children }: UserProfileModalProps) {
                     {profile.education.map((edu, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="text-muted-foreground">•</span>
-                        <span>{edu}</span>
+                        <span>{edu.degree} em {edu.field} - {edu.institution}</span>
                       </li>
                     ))}
                   </ul>
@@ -139,7 +139,7 @@ export function UserProfileModal({ profile, children }: UserProfileModalProps) {
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {profile.languages.map((lang, i) => (
-                      <span key={i} className="text-sm">{lang}</span>
+                      <span key={i} className="text-sm">{lang.name} ({lang.level})</span>
                     ))}
                   </div>
                 </div>
