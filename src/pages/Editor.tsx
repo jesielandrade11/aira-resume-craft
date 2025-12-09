@@ -9,8 +9,10 @@ import { UserProfileModal } from '@/components/UserProfileModal';
 import { ZoomControls } from '@/components/ZoomControls';
 import { BuyCreditsModal } from '@/components/BuyCreditsModal';
 import { PhotoUpload } from '@/components/PhotoUpload';
+import { EditableTitle } from '@/components/EditableTitle';
 import { useAIRAChat } from '@/hooks/useAIRAChat';
 import { useResumes } from '@/hooks/useResumes';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { getTemplateById } from '@/data/resumeTemplates';
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -36,11 +38,15 @@ export default function Editor() {
   const resumeId = searchParams.get('id');
   const isNew = searchParams.get('new') === 'true';
   const templateId = searchParams.get('template');
+  const fromResumeId = searchParams.get('fromResume'); // Use existing resume as template
   const initialJob = searchParams.get('job');
   const initialPrompt = searchParams.get('prompt');
   const linkedinUrl = searchParams.get('linkedin');
   const isPlanning = searchParams.get('planning') === 'true';
   const forceGenerateMode = searchParams.get('mode') === 'generate';
+
+  const { resumes, saveResume } = useResumes();
+  const { profile: userProfile, updateProfile: handleProfileUpdate } = useUserProfile();
 
   const [resume, setResume] = useState<ResumeData>(() => {
     // If template specified, use template styles
@@ -57,13 +63,10 @@ export default function Editor() {
     return saved ? JSON.parse(saved) : emptyResume;
   });
 
+  const [resumeTitle, setResumeTitle] = useState('Novo Currículo');
   const [currentResumeId, setCurrentResumeId] = useState<string | null>(resumeId);
   const [hasAutoSentPrompt, setHasAutoSentPrompt] = useState(false);
-
-  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.profile);
-    return saved ? JSON.parse(saved) : { ...emptyUserProfile, id: crypto.randomUUID() };
-  });
+  const [hasAutoSaved, setHasAutoSaved] = useState(false);
 
   const [credits, setCredits] = useState<UserCredits>(() => {
     // Força créditos ilimitados para testes - ignora localStorage
@@ -88,7 +91,6 @@ export default function Editor() {
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const chatPanelRef = useRef<ImperativePanelHandle>(null);
-  const { saveResume } = useResumes();
 
   // Load resume from database if ID is provided
   useEffect(() => {
@@ -109,6 +111,7 @@ export default function Editor() {
         if (data) {
           setResume(data.data as unknown as ResumeData);
           setJobDescription(data.job_description || '');
+          setResumeTitle(data.title || 'Novo Currículo');
           setCurrentResumeId(data.id);
         }
       };
@@ -116,18 +119,55 @@ export default function Editor() {
     }
   }, [resumeId]);
 
+  // Load resume from existing resume as template (fromResume)
+  useEffect(() => {
+    if (fromResumeId && isNew && resumes.length > 0) {
+      const sourceResume = resumes.find(r => r.id === fromResumeId);
+      if (sourceResume) {
+        setResume(sourceResume.data);
+        setJobDescription(sourceResume.job_description || '');
+        setResumeTitle(`${sourceResume.title} (cópia)`);
+        toast.success('Currículo carregado como base!');
+      }
+    }
+  }, [fromResumeId, isNew, resumes]);
+
+  // Auto-save new resumes
+  useEffect(() => {
+    if (isNew && !hasAutoSaved && !currentResumeId) {
+      const autoSave = async () => {
+        // Generate title based on job description or template
+        let title = 'Novo Currículo';
+        if (initialJob) {
+          const decoded = decodeURIComponent(initialJob);
+          // Extract first line or first 50 chars
+          const firstLine = decoded.split('\n')[0].substring(0, 50);
+          title = `Vaga: ${firstLine}${firstLine.length >= 50 ? '...' : ''}`;
+        } else if (templateId) {
+          const template = getTemplateById(templateId);
+          if (template) {
+            title = `Template: ${template.name}`;
+          }
+        }
+        
+        setResumeTitle(title);
+        const id = await saveResume(resume, jobDescription, undefined, title);
+        if (id) {
+          setCurrentResumeId(id);
+          setHasAutoSaved(true);
+        }
+      };
+      
+      // Small delay to ensure state is settled
+      const timer = setTimeout(autoSave, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isNew, hasAutoSaved, currentResumeId, initialJob, templateId, resume, jobDescription, saveResume]);
+
   // Save to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.resume, JSON.stringify(resume));
   }, [resume]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(userProfile));
-  }, [userProfile]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.credits, JSON.stringify(credits));
-  }, [credits]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.jobDescription, jobDescription);
@@ -200,14 +240,7 @@ export default function Editor() {
     });
   }, []);
 
-  const handleProfileUpdate = useCallback((data: Partial<UserProfile>) => {
-    setUserProfile(prev => ({
-      ...prev,
-      ...data,
-      updatedAt: new Date().toISOString(),
-    }));
-    toast.success('Perfil atualizado!');
-  }, []);
+  // Profile update is now handled by useUserProfile hook
 
   const handleCreditsUsed = useCallback((amount: number) => {
     setCredits(prev => {
@@ -350,11 +383,20 @@ export default function Editor() {
   };
 
   const handleSave = async () => {
-    const id = await saveResume(resume, jobDescription, currentResumeId || undefined);
+    const id = await saveResume(resume, jobDescription, currentResumeId || undefined, resumeTitle);
     if (id) {
       setCurrentResumeId(id);
+      toast.success('Currículo salvo!');
     }
   };
+
+  const handleTitleChange = useCallback((newTitle: string) => {
+    setResumeTitle(newTitle);
+    // Also save to database if we have an ID
+    if (currentResumeId) {
+      saveResume(resume, jobDescription, currentResumeId, newTitle);
+    }
+  }, [currentResumeId, resume, jobDescription, saveResume]);
 
   const handleWheel = (e: WheelEvent<HTMLDivElement>) => {
     if (e.ctrlKey || e.metaKey) {
@@ -394,7 +436,11 @@ export default function Editor() {
               <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                 AIRA
               </h1>
-              <p className="text-xs text-muted-foreground">Artificial Intelligence Resume Architect</p>
+              <EditableTitle 
+                value={resumeTitle} 
+                onChange={handleTitleChange}
+                placeholder="Novo Currículo"
+              />
             </div>
           </div>
           

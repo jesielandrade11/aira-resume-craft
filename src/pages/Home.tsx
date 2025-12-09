@@ -116,6 +116,11 @@ export default function Home() {
     navigate('/editor?new=true');
   };
 
+  const handleUseAsTemplate = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    navigate(`/editor?new=true&fromResume=${id}`);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
@@ -368,29 +373,7 @@ export default function Home() {
           </Card>
         </section>
 
-        {/* Templates Gallery */}
-        <section className="space-y-6">
-          <div className="text-center">
-            <h3 className="text-2xl font-bold text-foreground mb-2">
-              Ou comece com um template
-            </h3>
-            <p className="text-muted-foreground">
-              Escolha um dos nossos templates profissionais e personalize como quiser
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {resumeTemplates.map((template) => (
-              <TemplateCard
-                key={template.id}
-                template={template}
-                onClick={() => handleTemplateClick(template.id)}
-              />
-            ))}
-          </div>
-        </section>
-
-        {/* Saved Resumes */}
+        {/* Saved Resumes - MOVED ABOVE TEMPLATES */}
         {!isLoading && resumes && resumes.length > 0 && (
           <section className="space-y-6">
             <div className="flex items-center justify-between">
@@ -399,7 +382,7 @@ export default function Home() {
                   Meus Currículos
                 </h3>
                 <p className="text-muted-foreground text-sm">
-                  {resumes.length} currículo{resumes.length !== 1 ? 's' : ''} salvo{resumes.length !== 1 ? 's' : ''}
+                  {resumes.length} currículo{resumes.length !== 1 ? 's' : ''} salvo{resumes.length !== 1 ? 's' : ''} • Clique em ✨ para usar como base
                 </p>
               </div>
               <Button variant="outline" onClick={handleNewResume} className="gap-2">
@@ -416,11 +399,34 @@ export default function Home() {
                   onOpen={() => handleOpenResume(resume.id)}
                   onDelete={(e) => handleDeleteResume(e, resume.id)}
                   onDuplicate={(e) => handleDuplicateResume(e, resume.id)}
+                  onUseAsTemplate={(e) => handleUseAsTemplate(e, resume.id)}
                 />
               ))}
             </div>
           </section>
         )}
+
+        {/* Templates Gallery */}
+        <section className="space-y-6">
+          <div className="text-center">
+            <h3 className="text-2xl font-bold text-foreground mb-2">
+              {resumes && resumes.length > 0 ? 'Ou comece com um template' : 'Comece com um template'}
+            </h3>
+            <p className="text-muted-foreground">
+              Escolha um dos nossos templates profissionais e personalize como quiser
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {resumeTemplates.map((template) => (
+              <TemplateCard
+                key={template.id}
+                template={template}
+                onClick={() => handleTemplateClick(template.id)}
+              />
+            ))}
+          </div>
+        </section>
 
         {/* Empty state */}
         {!isLoading && (!resumes || resumes.length === 0) && (
