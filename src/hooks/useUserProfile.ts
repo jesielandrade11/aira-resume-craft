@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile, emptyUserProfile } from '@/types';
 import { toast } from 'sonner';
+import { useAuth } from './useAuth';
 
 const STORAGE_KEY = 'aira_profile';
-const USER_ID = 'anonymous'; // For now, single user
 
 interface DBUserProfile {
   id: string;
@@ -26,6 +26,7 @@ interface DBUserProfile {
 }
 
 export function useUserProfile() {
+  const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : { ...emptyUserProfile, id: crypto.randomUUID() };
@@ -35,12 +36,17 @@ export function useUserProfile() {
 
   // Fetch profile from database
   const fetchProfile = useCallback(async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('user_id', USER_ID)
+        .eq('user_id', user.id)
         .maybeSingle();
 
       if (error) throw error;
@@ -60,7 +66,7 @@ export function useUserProfile() {
           education: Array.isArray(dbProfile.education) ? dbProfile.education as UserProfile['education'] : [],
           languages: Array.isArray(dbProfile.languages) ? dbProfile.languages as UserProfile['languages'] : [],
           certifications: Array.isArray(dbProfile.certifications) ? dbProfile.certifications as string[] : [],
-          projects: [], // Not stored in DB yet
+          projects: [],
           preferences: (dbProfile.preferences as UserProfile['preferences']) || {},
           createdAt: dbProfile.created_at,
           updatedAt: dbProfile.updated_at,
@@ -70,11 +76,10 @@ export function useUserProfile() {
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
-      // Use localStorage fallback
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     fetchProfile();
@@ -82,6 +87,11 @@ export function useUserProfile() {
 
   // Save profile to localStorage and database
   const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
+    if (!user) {
+      toast.error('Você precisa estar logado');
+      return;
+    }
+
     try {
       setIsSaving(true);
       
@@ -96,7 +106,7 @@ export function useUserProfile() {
 
       // Save to database
       const dbData = {
-        user_id: USER_ID,
+        user_id: user.id,
         full_name: updatedProfile.fullName || null,
         email: updatedProfile.email || null,
         phone: updatedProfile.phone || null,
@@ -124,7 +134,7 @@ export function useUserProfile() {
     } finally {
       setIsSaving(false);
     }
-  }, [profile]);
+  }, [user, profile]);
 
   return {
     profile,
