@@ -24,6 +24,7 @@ interface ChatInterfaceProps {
   onResumeUpdate?: (data: Partial<ResumeData>) => void;
   onUndo?: () => void;
   canUndo?: boolean;
+  isModeLocked?: boolean;
 }
 
 export function ChatInterface({ 
@@ -36,7 +37,8 @@ export function ChatInterface({
   jobDescription,
   onResumeUpdate,
   onUndo,
-  canUndo = false
+  canUndo = false,
+  isModeLocked = false
 }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
@@ -245,6 +247,9 @@ export function ChatInterface({
           >
             <MessageSquare className="w-4 h-4" />
             <span>Planejar</span>
+            {isModeLocked && mode === 'planning' && (
+              <span className="text-[10px] bg-aira-primary/20 px-1.5 py-0.5 rounded">vaga ativa</span>
+            )}
           </button>
           <button
             onClick={() => onModeChange('generate')}
@@ -259,6 +264,12 @@ export function ChatInterface({
             <span>Gerar</span>
           </button>
         </div>
+        
+        {isModeLocked && mode === 'planning' && (
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            📋 Descrição da vaga ativa - clique em "Gerar" para implementar mudanças
+          </p>
+        )}
       </div>
 
       {/* Messages */}
