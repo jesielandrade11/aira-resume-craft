@@ -8,6 +8,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { toast } from 'sonner';
 import { Loader2, Sparkles, ArrowLeft } from 'lucide-react';
 import airaAvatar from '@/assets/aira-avatar.png';
+import { 
+  loginSchema, 
+  signupSchema, 
+  resetPasswordSchema, 
+  newPasswordSchema 
+} from '@/lib/validations/auth';
 
 interface AuthModalProps {
   open: boolean;
@@ -35,13 +41,16 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginEmail || !loginPassword) {
-      toast.error('Preencha todos os campos');
+    
+    const result = loginSchema.safeParse({ email: loginEmail, password: loginPassword });
+    if (!result.success) {
+      const firstError = result.error.errors[0];
+      toast.error(firstError.message);
       return;
     }
 
     setIsLoading(true);
-    const { error } = await signIn(loginEmail, loginPassword);
+    const { error } = await signIn(result.data.email, result.data.password);
     setIsLoading(false);
 
     if (error) {
@@ -59,18 +68,20 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signupEmail || !signupPassword) {
-      toast.error('Preencha todos os campos obrigatórios');
-      return;
-    }
-
-    if (signupPassword.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
+    
+    const result = signupSchema.safeParse({ 
+      email: signupEmail, 
+      password: signupPassword, 
+      name: signupName || undefined 
+    });
+    if (!result.success) {
+      const firstError = result.error.errors[0];
+      toast.error(firstError.message);
       return;
     }
 
     setIsLoading(true);
-    const { error } = await signUp(signupEmail, signupPassword, signupName);
+    const { error } = await signUp(result.data.email, result.data.password, result.data.name);
     setIsLoading(false);
 
     if (error) {
@@ -88,13 +99,16 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resetEmail) {
-      toast.error('Informe seu email');
+    
+    const result = resetPasswordSchema.safeParse({ email: resetEmail });
+    if (!result.success) {
+      const firstError = result.error.errors[0];
+      toast.error(firstError.message);
       return;
     }
 
     setIsLoading(true);
-    const { error } = await resetPassword(resetEmail);
+    const { error } = await resetPassword(result.data.email);
     setIsLoading(false);
 
     if (error) {
@@ -108,23 +122,19 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPassword || !confirmPassword) {
-      toast.error('Preencha todos os campos');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast.error('As senhas não coincidem');
+    
+    const result = newPasswordSchema.safeParse({ 
+      password: newPassword, 
+      confirmPassword: confirmPassword 
+    });
+    if (!result.success) {
+      const firstError = result.error.errors[0];
+      toast.error(firstError.message);
       return;
     }
 
     setIsLoading(true);
-    const { error } = await updatePassword(newPassword);
+    const { error } = await updatePassword(result.data.password);
     setIsLoading(false);
 
     if (error) {
@@ -231,6 +241,7 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     disabled={isLoading}
+                    maxLength={255}
                   />
                 </div>
                 <div className="space-y-2">
@@ -251,6 +262,7 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     disabled={isLoading}
+                    maxLength={128}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
@@ -277,6 +289,7 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
                     value={signupName}
                     onChange={(e) => setSignupName(e.target.value)}
                     disabled={isLoading}
+                    maxLength={100}
                   />
                 </div>
                 <div className="space-y-2">
@@ -288,6 +301,7 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
                     disabled={isLoading}
+                    maxLength={255}
                   />
                 </div>
                 <div className="space-y-2">
@@ -299,6 +313,7 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
                     value={signupPassword}
                     onChange={(e) => setSignupPassword(e.target.value)}
                     disabled={isLoading}
+                    maxLength={128}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
@@ -345,6 +360,7 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
                   disabled={isLoading}
+                  maxLength={255}
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
@@ -380,6 +396,7 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   disabled={isLoading}
+                  maxLength={128}
                 />
               </div>
               <div className="space-y-2">
@@ -391,6 +408,7 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   disabled={isLoading}
+                  maxLength={128}
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
