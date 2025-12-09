@@ -245,7 +245,12 @@ serve(async (req) => {
     }
     
     if (resume) {
-      contextMessage += `\n\n📄 CURRÍCULO ATUAL:\n${JSON.stringify(resume, null, 2)}\n`;
+      // Remove photo from resume to avoid token limit issues (base64 images are huge)
+      const resumeForContext = { ...resume };
+      if (resumeForContext.personalInfo) {
+        resumeForContext.personalInfo = { ...resumeForContext.personalInfo, photo: undefined };
+      }
+      contextMessage += `\n\n📄 CURRÍCULO ATUAL:\n${JSON.stringify(resumeForContext, null, 2)}\n`;
     }
 
     // Build messages array
