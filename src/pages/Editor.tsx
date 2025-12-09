@@ -223,14 +223,53 @@ export default function Editor() {
     });
   }, []);
 
-  const { messages, isLoading, mode, setMode, sendMessage, clearChat, canUndo, undo } = useAIRAChat({
+  const [savedJobDescription, setSavedJobDescription] = useState(jobDescription);
+
+  const { 
+    messages, 
+    isLoading, 
+    mode, 
+    setMode, 
+    sendMessage, 
+    clearChat, 
+    canUndo, 
+    undo,
+    isModeLocked,
+    activateJobMode,
+    deactivateJobMode 
+  } = useAIRAChat({
     resume,
     userProfile,
-    jobDescription,
+    jobDescription: savedJobDescription,
     onResumeUpdate: handleResumeUpdate,
     onProfileUpdate: handleProfileUpdate,
     onCreditsUsed: handleCreditsUsed,
   });
+
+  // Handle job description save - trigger compatibility analysis
+  const handleJobDescriptionSave = useCallback((value: string) => {
+    setSavedJobDescription(value);
+    
+    if (value.trim()) {
+      // Activate planning mode and send compatibility analysis request
+      activateJobMode();
+      
+      // Auto-send compatibility analysis message
+      setTimeout(() => {
+        sendMessage(
+          `[ANÁLISE DE COMPATIBILIDADE SOLICITADA]\n\nDescrição da vaga:\n${value}\n\nAnalise meu currículo atual em relação a esta vaga.`,
+          undefined,
+          'planning'
+        );
+      }, 100);
+    } else {
+      deactivateJobMode();
+    }
+  }, [activateJobMode, deactivateJobMode, sendMessage]);
+
+  const handleJobDescriptionClose = useCallback(() => {
+    // Just close, don't change anything
+  }, []);
 
   // Auto-send initial prompt if provided via URL (with attachments and LinkedIn)
   useEffect(() => {
@@ -434,6 +473,9 @@ export default function Editor() {
                 <JobDescriptionPanel
                   value={jobDescription}
                   onChange={setJobDescription}
+                  onSave={handleJobDescriptionSave}
+                  onClose={handleJobDescriptionClose}
+                  savedValue={savedJobDescription}
                 />
               </div>
               
@@ -446,10 +488,11 @@ export default function Editor() {
                   onModeChange={setMode}
                   onSendMessage={sendMessage}
                   disabled={noCredits}
-                  jobDescription={jobDescription}
+                  jobDescription={savedJobDescription}
                   onResumeUpdate={handleResumeUpdate}
                   onUndo={undo}
                   canUndo={canUndo}
+                  isModeLocked={isModeLocked}
                 />
               </div>
               

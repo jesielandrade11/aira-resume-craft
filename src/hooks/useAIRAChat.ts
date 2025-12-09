@@ -27,6 +27,7 @@ export function useAIRAChat({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<ChatMode>('generate');
+  const [isModeLocked, setIsModeLocked] = useState(false); // Lock mode when job description is active
   
   // Undo history - stores previous resume states
   const undoHistory = useRef<ResumeData[]>([]);
@@ -238,14 +239,37 @@ export function useAIRAChat({
     setMessages([]);
   }, []);
 
+  // Function to activate job description mode (planning + lock)
+  const activateJobMode = useCallback(() => {
+    setMode('planning');
+    setIsModeLocked(true);
+  }, []);
+
+  // Function to deactivate job mode
+  const deactivateJobMode = useCallback(() => {
+    setIsModeLocked(false);
+  }, []);
+
+  // Override setMode to respect lock
+  const setModeWithLock = useCallback((newMode: ChatMode) => {
+    // If locked, only allow change if explicitly unlocking (user clicks generate)
+    if (isModeLocked && newMode === 'generate') {
+      setIsModeLocked(false);
+    }
+    setMode(newMode);
+  }, [isModeLocked]);
+
   return {
     messages,
     isLoading,
     mode,
-    setMode,
+    setMode: setModeWithLock,
     sendMessage,
     clearChat,
     canUndo,
     undo,
+    isModeLocked,
+    activateJobMode,
+    deactivateJobMode,
   };
 }
