@@ -146,37 +146,36 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                 AIRA
               </h1>
-              <p className="text-xs text-muted-foreground">Artificial Intelligence Resume Architect</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">Artificial Intelligence Resume Architect</p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-12">
+      <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-8 sm:space-y-12">
         {/* Hero Section */}
-        <section className="text-center py-12 space-y-6">
-          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium">
-            <Sparkles className="w-4 h-4" />
+        <section className="text-center py-6 sm:py-12 space-y-4 sm:space-y-6">
+          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium">
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             Powered by AI
           </div>
           
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground max-w-3xl mx-auto leading-tight">
+          <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground max-w-3xl mx-auto leading-tight px-2">
             Crie seu currículo perfeito
             <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"> com inteligência artificial</span>
           </h2>
           
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            A AIRA analisa a vaga desejada e gera um currículo otimizado para você se destacar. 
-            Basta descrever a vaga e deixar a IA fazer o resto.
+          <p className="text-sm sm:text-lg text-muted-foreground max-w-2xl mx-auto px-2">
+            A AIRA analisa a vaga desejada e gera um currículo otimizado para você se destacar.
           </p>
         </section>
 
@@ -375,23 +374,23 @@ export default function Home() {
 
         {/* Saved Resumes - MOVED ABOVE TEMPLATES */}
         {!isLoading && resumes && resumes.length > 0 && (
-          <section className="space-y-6">
-            <div className="flex items-center justify-between">
+          <section className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-2xl font-bold text-foreground mb-1">
+                <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
                   Meus Currículos
                 </h3>
-                <p className="text-muted-foreground text-sm">
-                  {resumes.length} currículo{resumes.length !== 1 ? 's' : ''} salvo{resumes.length !== 1 ? 's' : ''} • Clique em ✨ para usar como base
+                <p className="text-muted-foreground text-xs sm:text-sm">
+                  {resumes.length} currículo{resumes.length !== 1 ? 's' : ''} salvo{resumes.length !== 1 ? 's' : ''} • Toque em ✨ para usar como base
                 </p>
               </div>
-              <Button variant="outline" onClick={handleNewResume} className="gap-2">
+              <Button variant="outline" onClick={handleNewResume} className="gap-2 w-full sm:w-auto">
                 <Plus className="w-4 h-4" />
                 Novo Currículo
               </Button>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
               {resumes.map((resume) => (
                 <SavedResumeCard
                   key={resume.id}
@@ -407,17 +406,17 @@ export default function Home() {
         )}
 
         {/* Templates Gallery */}
-        <section className="space-y-6">
+        <section className="space-y-4 sm:space-y-6">
           <div className="text-center">
-            <h3 className="text-2xl font-bold text-foreground mb-2">
+            <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-2">
               {resumes && resumes.length > 0 ? 'Ou comece com um template' : 'Comece com um template'}
             </h3>
-            <p className="text-muted-foreground">
-              Escolha um dos nossos templates profissionais e personalize como quiser
+            <p className="text-muted-foreground text-sm">
+              Escolha um template profissional e personalize
             </p>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
             {resumeTemplates.map((template) => (
               <TemplateCard
                 key={template.id}

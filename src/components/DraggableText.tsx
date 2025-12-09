@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect, KeyboardEvent, CSSProperties, MouseEvent, TouchEvent } from 'react';
+import { useState, useRef, useEffect, KeyboardEvent, CSSProperties, MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
-import { GripVertical } from 'lucide-react';
+import { Move } from 'lucide-react';
 
-interface EditableTextProps {
+interface DraggableTextProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -10,10 +10,12 @@ interface EditableTextProps {
   style?: CSSProperties;
   as?: 'h1' | 'h2' | 'h3' | 'p' | 'span';
   multiline?: boolean;
-  draggable?: boolean;
+  enableDrag?: boolean;
+  position?: { x: number; y: number };
+  onPositionChange?: (position: { x: number; y: number }) => void;
 }
 
-export function EditableText({
+export function DraggableText({
   value,
   onChange,
   placeholder = 'Clique para editar',
@@ -21,16 +23,18 @@ export function EditableText({
   style,
   as: Component = 'span',
   multiline = false,
-  draggable = false,
-}: EditableTextProps) {
+  enableDrag = true,
+  position,
+  onPositionChange,
+}: DraggableTextProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [showHandle, setShowHandle] = useState(false);
+  const [showDragHandle, setShowDragHandle] = useState(false);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const dragStartRef = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 });
+  const dragStartPos = useRef({ x: 0, y: 0 });
+  const initialPos = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     setEditValue(value);
@@ -43,7 +47,7 @@ export function EditableText({
     }
   }, [isEditing]);
 
-  const handleClick = () => {
+  const handleClick = (e: MouseEvent) => {
     if (!isDragging) {
       setIsEditing(true);
     }
@@ -67,70 +71,43 @@ export function EditableText({
     }
   };
 
-  // Mouse drag handlers
   const handleDragStart = (e: MouseEvent) => {
-    if (!draggable) return;
+    if (!enableDrag || !onPositionChange) return;
     e.preventDefault();
     e.stopPropagation();
+    
     setIsDragging(true);
-    dragStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      offsetX: dragOffset.x,
-      offsetY: dragOffset.y,
-    };
-
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+    initialPos.current = position || { x: 0, y: 0 };
+    
     const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
-      const deltaX = moveEvent.clientX - dragStartRef.current.x;
-      const deltaY = moveEvent.clientY - dragStartRef.current.y;
-      setDragOffset({
-        x: dragStartRef.current.offsetX + deltaX,
-        y: dragStartRef.current.offsetY + deltaY,
+      const deltaX = moveEvent.clientX - dragStartPos.current.x;
+      const deltaY = moveEvent.clientY - dragStartPos.current.y;
+      
+      onPositionChange({
+        x: initialPos.current.x + deltaX,
+        y: initialPos.current.y + deltaY,
       });
     };
-
+    
     const handleMouseUp = () => {
-      setTimeout(() => setIsDragging(false), 50);
+      setIsDragging(false);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-
+    
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Touch drag handlers
-  const handleTouchStart = (e: TouchEvent) => {
-    if (!draggable) return;
-    const touch = e.touches[0];
-    setIsDragging(true);
-    dragStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      offsetX: dragOffset.x,
-      offsetY: dragOffset.y,
-    };
+  const containerStyle: CSSProperties = {
+    ...style,
+    ...(position && onPositionChange ? {
+      position: 'relative' as const,
+      left: `${position.x}px`,
+      top: `${position.y}px`,
+    } : {}),
   };
-
-  const handleTouchMove = (e: TouchEvent) => {
-    if (!isDragging || !draggable) return;
-    const touch = e.touches[0];
-    const deltaX = touch.clientX - dragStartRef.current.x;
-    const deltaY = touch.clientY - dragStartRef.current.y;
-    setDragOffset({
-      x: dragStartRef.current.offsetX + deltaX,
-      y: dragStartRef.current.offsetY + deltaY,
-    });
-  };
-
-  const handleTouchEnd = () => {
-    setTimeout(() => setIsDragging(false), 50);
-  };
-
-  const containerStyle: CSSProperties = draggable ? {
-    transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)`,
-    transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-  } : {};
 
   if (isEditing) {
     const InputComponent = multiline ? 'textarea' : 'input';
@@ -162,21 +139,18 @@ export function EditableText({
   return (
     <div
       ref={containerRef}
-      className={cn("relative inline-flex items-center group", draggable && "cursor-default")}
+      className="relative inline-block group"
       style={containerStyle}
-      onMouseEnter={() => draggable && setShowHandle(true)}
-      onMouseLeave={() => !isDragging && setShowHandle(false)}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onMouseEnter={() => setShowDragHandle(true)}
+      onMouseLeave={() => !isDragging && setShowDragHandle(false)}
     >
-      {draggable && showHandle && (
+      {enableDrag && onPositionChange && showDragHandle && (
         <button
-          className="absolute -left-5 top-1/2 -translate-y-1/2 p-0.5 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity bg-primary/10 rounded hover:bg-primary/20 print:hidden active:cursor-grabbing"
+          className="absolute -left-5 top-1/2 -translate-y-1/2 p-0.5 cursor-move opacity-0 group-hover:opacity-100 transition-opacity bg-primary/10 rounded hover:bg-primary/20 print:hidden"
           onMouseDown={handleDragStart}
           title="Arraste para mover"
         >
-          <GripVertical className="w-3 h-3 text-primary" />
+          <Move className="w-3 h-3 text-primary" />
         </button>
       )}
       <Component
@@ -184,6 +158,7 @@ export function EditableText({
         className={cn(
           'cursor-text hover:bg-resume-accent/20 rounded px-1 -mx-1 transition-colors duration-200',
           !value && 'text-resume-muted italic',
+          isDragging && 'cursor-grabbing',
           className
         )}
         style={style}

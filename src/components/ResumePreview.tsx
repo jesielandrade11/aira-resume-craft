@@ -8,9 +8,10 @@ import { useState } from 'react';
 interface ResumePreviewProps {
   resume: ResumeData;
   onUpdate: (data: Partial<ResumeData>) => void;
+  enableDrag?: boolean;
 }
 
-export function ResumePreview({ resume, onUpdate }: ResumePreviewProps) {
+export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePreviewProps) {
   const [hoveredSection, setHoveredSection] = useState<string | null>(null);
   const styles = resume.styles || defaultStyles;
 

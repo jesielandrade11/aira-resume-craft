@@ -13,12 +13,14 @@ import { EditableTitle } from '@/components/EditableTitle';
 import { useAIRAChat } from '@/hooks/useAIRAChat';
 import { useResumes } from '@/hooks/useResumes';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { getTemplateById } from '@/data/resumeTemplates';
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
-import { User, Download, RotateCcw, Eye, Sparkles, Save, Home, PanelLeftClose, PanelLeft, Camera } from 'lucide-react';
+import { User, Download, RotateCcw, Eye, Sparkles, Save, Home, PanelLeftClose, PanelLeft, MessageCircle, FileText, Menu } from 'lucide-react';
 import { toast } from 'sonner';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 
 const STORAGE_KEYS = {
@@ -91,6 +93,9 @@ export default function Editor() {
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const chatPanelRef = useRef<ImperativePanelHandle>(null);
+  const isMobile = useIsMobile();
+  const [mobileView, setMobileView] = useState<'chat' | 'preview'>('chat');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Load resume from database if ID is provided
   useEffect(() => {
@@ -427,12 +432,12 @@ export default function Editor() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
+        <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
             </div>
-            <div>
+            <div className="hidden sm:block">
               <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                 AIRA
               </h1>
@@ -442,19 +447,25 @@ export default function Editor() {
                 placeholder="Novo Currículo"
               />
             </div>
+            <div className="sm:hidden">
+              <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                AIRA
+              </h1>
+            </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          {/* Desktop Actions */}
+          <div className="hidden sm:flex items-center gap-2">
             <CreditsDisplay credits={credits} />
             
             <Button variant="outline" size="sm" onClick={() => navigate('/')} title="Início" className="gap-1">
               <Home className="w-4 h-4" />
-              <span className="hidden sm:inline">Início</span>
+              <span className="hidden md:inline">Início</span>
             </Button>
             
             <Button variant="outline" size="sm" onClick={handleLoadExample} title="Ver Exemplo" className="gap-1">
               <Eye className="w-4 h-4" />
-              <span className="hidden sm:inline">Exemplo</span>
+              <span className="hidden md:inline">Exemplo</span>
             </Button>
             
             <PhotoUpload
@@ -480,129 +491,294 @@ export default function Editor() {
               <RotateCcw className="w-4 h-4" />
             </Button>
           </div>
+
+          {/* Mobile Actions */}
+          <div className="flex sm:hidden items-center gap-1">
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleSave} title="Salvar">
+              <Save className="w-4 h-4" />
+            </Button>
+            
+            <UserProfileModal profile={userProfile}>
+              <Button variant="outline" size="icon" className="h-8 w-8" title="Perfil">
+                <User className="w-4 h-4" />
+              </Button>
+            </UserProfileModal>
+            
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8">
+                  <Menu className="w-4 h-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-64">
+                <div className="flex flex-col gap-2 mt-6">
+                  <EditableTitle 
+                    value={resumeTitle} 
+                    onChange={handleTitleChange}
+                    placeholder="Novo Currículo"
+                  />
+                  <div className="border-b border-border my-2" />
+                  <Button variant="ghost" className="justify-start gap-2" onClick={() => { navigate('/'); setMobileMenuOpen(false); }}>
+                    <Home className="w-4 h-4" />
+                    Início
+                  </Button>
+                  <Button variant="ghost" className="justify-start gap-2" onClick={() => { handleLoadExample(); setMobileMenuOpen(false); }}>
+                    <Eye className="w-4 h-4" />
+                    Ver Exemplo
+                  </Button>
+                  <Button variant="ghost" className="justify-start gap-2" onClick={() => { handleExportPDF(); setMobileMenuOpen(false); }}>
+                    <Download className="w-4 h-4" />
+                    Exportar PDF
+                  </Button>
+                  <Button variant="ghost" className="justify-start gap-2" onClick={() => { handleReset(); setMobileMenuOpen(false); }}>
+                    <RotateCcw className="w-4 h-4" />
+                    Recomeçar
+                  </Button>
+                  <div className="border-b border-border my-2" />
+                  <PhotoUpload
+                    currentPhoto={resume.personalInfo.photo}
+                    onPhotoChange={(photo) => handleResumeUpdate({ personalInfo: { ...resume.personalInfo, photo } })}
+                  />
+                  <div className="mt-4">
+                    <CreditsDisplay credits={credits} />
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </header>
 
+      {/* Mobile View Toggle */}
+      {isMobile && (
+        <div className="flex border-b border-border bg-card print:hidden">
+          <button
+            onClick={() => setMobileView('chat')}
+            className={`flex-1 py-3 flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
+              mobileView === 'chat' 
+                ? 'text-primary border-b-2 border-primary bg-primary/5' 
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <MessageCircle className="w-4 h-4" />
+            Chat IA
+          </button>
+          <button
+            onClick={() => setMobileView('preview')}
+            className={`flex-1 py-3 flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
+              mobileView === 'preview' 
+                ? 'text-primary border-b-2 border-primary bg-primary/5' 
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Currículo
+          </button>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="flex-1 flex overflow-hidden print:block">
-        <ResizablePanelGroup direction="horizontal" className="flex-1">
-          {/* Chat Panel */}
-          <ResizablePanel 
-            ref={chatPanelRef}
-            defaultSize={defaultPanelSize} 
-            minSize={0}
-            maxSize={50}
-            collapsible
-            collapsedSize={0}
-            onCollapse={() => setIsPanelCollapsed(true)}
-            onExpand={() => setIsPanelCollapsed(false)}
-            onResize={handlePanelResize}
-            className="print:hidden"
-          >
-            <aside className="h-full border-r border-border flex flex-col bg-card">
-              {/* Panel Header with Toggle */}
-              <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
-                <span className="text-sm font-medium text-muted-foreground">Chat AIRA</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={togglePanel}
-                  className="h-8 w-8"
-                  title="Recolher painel"
+        {/* Mobile Layout */}
+        {isMobile ? (
+          <div className="flex-1 flex flex-col">
+            {/* Mobile Chat View */}
+            {mobileView === 'chat' && (
+              <div className="flex-1 flex flex-col bg-card">
+                {/* Job Description */}
+                <div className="p-3 border-b border-border">
+                  <JobDescriptionPanel
+                    value={jobDescription}
+                    onChange={setJobDescription}
+                    onSave={handleJobDescriptionSave}
+                    onClose={handleJobDescriptionClose}
+                    savedValue={savedJobDescription}
+                  />
+                </div>
+                
+                {/* Chat */}
+                <div className="flex-1 overflow-hidden">
+                  <ChatInterface
+                    messages={messages}
+                    isLoading={isLoading}
+                    mode={mode}
+                    onModeChange={setMode}
+                    onSendMessage={sendMessage}
+                    disabled={noCredits}
+                    jobDescription={savedJobDescription}
+                    onResumeUpdate={handleResumeUpdate}
+                    onUndo={undo}
+                    canUndo={canUndo}
+                    isModeLocked={isModeLocked}
+                  />
+                </div>
+                
+                {noCredits && (
+                  <div className="p-3 bg-destructive/10 border-t border-destructive/20">
+                    <p className="text-sm text-destructive font-medium">
+                      Seus créditos acabaram! 
+                    </p>
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="w-full mt-2"
+                      onClick={() => setShowBuyCreditsModal(true)}
+                    >
+                      Comprar mais créditos
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Mobile Preview View */}
+            {mobileView === 'preview' && (
+              <section className="flex-1 relative overflow-hidden bg-muted/30">
+                {/* Zoom Controls */}
+                <div className="absolute top-2 right-2 z-10">
+                  <ZoomControls zoom={zoom} onZoomChange={setZoom} />
+                </div>
+
+                {/* Preview Container with Zoom */}
+                <div 
+                  ref={previewContainerRef}
+                  className="h-full overflow-auto p-4"
+                  onWheel={handleWheel}
                 >
-                  <PanelLeftClose className="w-4 h-4" />
-                </Button>
-              </div>
-              
-              {/* Job Description */}
-              <div className="p-4 border-b border-border">
-                <JobDescriptionPanel
-                  value={jobDescription}
-                  onChange={setJobDescription}
-                  onSave={handleJobDescriptionSave}
-                  onClose={handleJobDescriptionClose}
-                  savedValue={savedJobDescription}
-                />
-              </div>
-              
-              {/* Chat */}
-              <div className="flex-1 overflow-hidden">
-                <ChatInterface
-                  messages={messages}
-                  isLoading={isLoading}
-                  mode={mode}
-                  onModeChange={setMode}
-                  onSendMessage={sendMessage}
-                  disabled={noCredits}
-                  jobDescription={savedJobDescription}
-                  onResumeUpdate={handleResumeUpdate}
-                  onUndo={undo}
-                  canUndo={canUndo}
-                  isModeLocked={isModeLocked}
-                />
-              </div>
-              
-              {noCredits && (
-                <div className="p-4 bg-destructive/10 border-t border-destructive/20">
-                  <p className="text-sm text-destructive font-medium">
-                    Seus créditos acabaram! 
-                  </p>
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    className="w-full mt-2"
-                    onClick={() => setShowBuyCreditsModal(true)}
+                  <div 
+                    className="origin-top-left transition-transform duration-150"
+                    style={{ 
+                      transform: `scale(${zoom})`,
+                      width: `${100 / zoom}%`,
+                    }}
                   >
-                    Comprar mais créditos
+                    <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
+                  </div>
+                </div>
+              </section>
+            )}
+          </div>
+        ) : (
+          /* Desktop Layout */
+          <ResizablePanelGroup direction="horizontal" className="flex-1">
+            {/* Chat Panel */}
+            <ResizablePanel 
+              ref={chatPanelRef}
+              defaultSize={defaultPanelSize} 
+              minSize={0}
+              maxSize={50}
+              collapsible
+              collapsedSize={0}
+              onCollapse={() => setIsPanelCollapsed(true)}
+              onExpand={() => setIsPanelCollapsed(false)}
+              onResize={handlePanelResize}
+              className="print:hidden"
+            >
+              <aside className="h-full border-r border-border flex flex-col bg-card">
+                {/* Panel Header with Toggle */}
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
+                  <span className="text-sm font-medium text-muted-foreground">Chat AIRA</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={togglePanel}
+                    className="h-8 w-8"
+                    title="Recolher painel"
+                  >
+                    <PanelLeftClose className="w-4 h-4" />
                   </Button>
                 </div>
-              )}
-            </aside>
-          </ResizablePanel>
-          
-          <ResizableHandle withHandle className="print:hidden" />
-
-          {/* Resume Preview */}
-          <ResizablePanel defaultSize={isPanelCollapsed ? 100 : 100 - defaultPanelSize}>
-            <section className="relative h-full overflow-hidden bg-muted/30 print:bg-white print:overflow-visible">
-              {/* Expand toggle - only show when panel is collapsed */}
-              {isPanelCollapsed && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={togglePanel}
-                  className="absolute top-4 left-4 z-10 shadow-lg print:hidden gap-2"
-                  title="Expandir chat"
-                >
-                  <PanelLeft className="w-4 h-4" />
-                  <span>Chat</span>
-                </Button>
-              )}
-
-              {/* Zoom Controls */}
-              <div className="absolute top-4 right-4 z-10 print:hidden">
-                <ZoomControls zoom={zoom} onZoomChange={setZoom} />
-              </div>
-
-              {/* Preview Container with Zoom */}
-              <div 
-                ref={previewContainerRef}
-                className="h-full overflow-auto p-8 print:p-0 print:overflow-visible"
-                onWheel={handleWheel}
-              >
-                <div 
-                  className="origin-top-left transition-transform duration-150 print:transform-none"
-                  style={{ 
-                    transform: `scale(${zoom})`,
-                    width: `${100 / zoom}%`,
-                  }}
-                >
-                  <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
+                
+                {/* Job Description */}
+                <div className="p-4 border-b border-border">
+                  <JobDescriptionPanel
+                    value={jobDescription}
+                    onChange={setJobDescription}
+                    onSave={handleJobDescriptionSave}
+                    onClose={handleJobDescriptionClose}
+                    savedValue={savedJobDescription}
+                  />
                 </div>
-              </div>
-            </section>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+                
+                {/* Chat */}
+                <div className="flex-1 overflow-hidden">
+                  <ChatInterface
+                    messages={messages}
+                    isLoading={isLoading}
+                    mode={mode}
+                    onModeChange={setMode}
+                    onSendMessage={sendMessage}
+                    disabled={noCredits}
+                    jobDescription={savedJobDescription}
+                    onResumeUpdate={handleResumeUpdate}
+                    onUndo={undo}
+                    canUndo={canUndo}
+                    isModeLocked={isModeLocked}
+                  />
+                </div>
+                
+                {noCredits && (
+                  <div className="p-4 bg-destructive/10 border-t border-destructive/20">
+                    <p className="text-sm text-destructive font-medium">
+                      Seus créditos acabaram! 
+                    </p>
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="w-full mt-2"
+                      onClick={() => setShowBuyCreditsModal(true)}
+                    >
+                      Comprar mais créditos
+                    </Button>
+                  </div>
+                )}
+              </aside>
+            </ResizablePanel>
+            
+            <ResizableHandle withHandle className="print:hidden" />
+
+            {/* Resume Preview */}
+            <ResizablePanel defaultSize={isPanelCollapsed ? 100 : 100 - defaultPanelSize}>
+              <section className="relative h-full overflow-hidden bg-muted/30 print:bg-white print:overflow-visible">
+                {/* Expand toggle - only show when panel is collapsed */}
+                {isPanelCollapsed && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={togglePanel}
+                    className="absolute top-4 left-4 z-10 shadow-lg print:hidden gap-2"
+                    title="Expandir chat"
+                  >
+                    <PanelLeft className="w-4 h-4" />
+                    <span>Chat</span>
+                  </Button>
+                )}
+
+                {/* Zoom Controls */}
+                <div className="absolute top-4 right-4 z-10 print:hidden">
+                  <ZoomControls zoom={zoom} onZoomChange={setZoom} />
+                </div>
+
+                {/* Preview Container with Zoom */}
+                <div 
+                  ref={previewContainerRef}
+                  className="h-full overflow-auto p-8 print:p-0 print:overflow-visible"
+                  onWheel={handleWheel}
+                >
+                  <div 
+                    className="origin-top-left transition-transform duration-150 print:transform-none"
+                    style={{ 
+                      transform: `scale(${zoom})`,
+                      width: `${100 / zoom}%`,
+                    }}
+                  >
+                    <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
+                  </div>
+                </div>
+              </section>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
       </main>
       
       {/* Buy Credits Modal */}
