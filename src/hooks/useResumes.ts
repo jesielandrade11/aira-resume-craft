@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ResumeData } from '@/types';
 import { toast } from 'sonner';
+import { useAuth } from './useAuth';
 
 export interface SavedResume {
   id: string;
@@ -15,10 +16,17 @@ export interface SavedResume {
 }
 
 export function useResumes() {
+  const { user } = useAuth();
   const [resumes, setResumes] = useState<SavedResume[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchResumes = useCallback(async () => {
+    if (!user) {
+      setResumes([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       const { data, error } = await supabase
@@ -38,7 +46,7 @@ export function useResumes() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     fetchResumes();
@@ -50,6 +58,11 @@ export function useResumes() {
     id?: string,
     title?: string
   ): Promise<string | null> => {
+    if (!user) {
+      toast.error('Você precisa estar logado para salvar');
+      return null;
+    }
+
     try {
       const resumeTitle = title || resume.personalInfo?.fullName || 'Novo Currículo';
       
@@ -73,6 +86,7 @@ export function useResumes() {
         const { data, error } = await supabase
           .from('resumes')
           .insert([{
+            user_id: user.id,
             title: resumeTitle,
             data: JSON.parse(JSON.stringify(resume)),
             job_description: jobDescription || null,
@@ -90,7 +104,7 @@ export function useResumes() {
       toast.error('Erro ao salvar currículo');
       return null;
     }
-  }, [fetchResumes]);
+  }, [user, fetchResumes]);
 
   const deleteResume = useCallback(async (id: string) => {
     try {
@@ -109,6 +123,11 @@ export function useResumes() {
   }, [fetchResumes]);
 
   const duplicateResume = useCallback(async (id: string) => {
+    if (!user) {
+      toast.error('Você precisa estar logado');
+      return;
+    }
+
     try {
       const original = resumes.find(r => r.id === id);
       if (!original) return;
@@ -116,6 +135,7 @@ export function useResumes() {
       const { error } = await supabase
         .from('resumes')
         .insert([{
+          user_id: user.id,
           title: `${original.title} (Cópia)`,
           data: JSON.parse(JSON.stringify(original.data)),
           job_description: original.job_description,
@@ -128,7 +148,7 @@ export function useResumes() {
       console.error('Error duplicating resume:', error);
       toast.error('Erro ao duplicar currículo');
     }
-  }, [resumes, fetchResumes]);
+  }, [user, resumes, fetchResumes]);
 
   return {
     resumes,

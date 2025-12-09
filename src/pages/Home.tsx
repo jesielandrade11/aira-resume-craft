@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowRight, Plus, Briefcase, Linkedin, Upload, FileText, Coins, Paperclip, X } from 'lucide-react';
+import { Sparkles, ArrowRight, Plus, Briefcase, Linkedin, Upload, FileText, Coins, Paperclip, X, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { TemplateCard } from '@/components/TemplateCard';
 import { SavedResumeCard } from '@/components/SavedResumeCard';
 import { resumeTemplates } from '@/data/resumeTemplates';
 import { useResumes } from '@/hooks/useResumes';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -17,6 +18,7 @@ import airaAvatar from '@/assets/aira-avatar.png';
 export default function Home() {
   const navigate = useNavigate();
   const { resumes, isLoading, deleteResume, duplicateResume } = useResumes();
+  const { user, signOut } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [jobDescription, setJobDescription] = useState('');
@@ -25,6 +27,16 @@ export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [linkedinPopoverOpen, setLinkedinPopoverOpen] = useState(false);
   const [attachPopoverOpen, setAttachPopoverOpen] = useState(false);
+
+  const handleLogout = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast.error('Erro ao sair');
+    } else {
+      toast.success('Até logo!');
+      navigate('/auth');
+    }
+  };
 
   const handleGenerateWithAI = () => {
     const params = new URLSearchParams();
@@ -158,6 +170,17 @@ export default function Home() {
               </h1>
               <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">Artificial Intelligence Resume Architect</p>
             </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {user && (
+              <span className="text-sm text-muted-foreground hidden sm:block">
+                {user.email}
+              </span>
+            )}
+            <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
+              <LogOut className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </header>
