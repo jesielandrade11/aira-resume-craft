@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowRight, Plus, Briefcase, Linkedin, Upload, FileText, Coins, Paperclip, X, LogOut } from 'lucide-react';
+import { Sparkles, ArrowRight, Plus, Briefcase, Linkedin, Upload, FileText, Coins, Paperclip, X, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { SavedResumeCard } from '@/components/SavedResumeCard';
 import { resumeTemplates } from '@/data/resumeTemplates';
 import { useResumes } from '@/hooks/useResumes';
 import { useAuth } from '@/hooks/useAuth';
+import { AuthModal } from '@/components/AuthModal';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -18,7 +19,7 @@ import airaAvatar from '@/assets/aira-avatar.png';
 export default function Home() {
   const navigate = useNavigate();
   const { resumes, isLoading, deleteResume, duplicateResume } = useResumes();
-  const { user, signOut } = useAuth();
+  const { user, isAuthenticated, signOut } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [jobDescription, setJobDescription] = useState('');
@@ -27,6 +28,8 @@ export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [linkedinPopoverOpen, setLinkedinPopoverOpen] = useState(false);
   const [attachPopoverOpen, setAttachPopoverOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   const handleLogout = async () => {
     const { error } = await signOut();
@@ -34,83 +37,104 @@ export default function Home() {
       toast.error('Erro ao sair');
     } else {
       toast.success('Até logo!');
-      navigate('/auth');
     }
+  };
+
+  const requireAuth = (action: () => void) => {
+    if (isAuthenticated) {
+      action();
+    } else {
+      setPendingAction(() => action);
+      setAuthModalOpen(true);
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    if (pendingAction) {
+      pendingAction();
+      setPendingAction(null);
+    }
+  };
+
+  const navigateToEditor = (url: string) => {
+    navigate(url);
   };
 
   const handleGenerateWithAI = () => {
-    const params = new URLSearchParams();
-    params.set('new', 'true');
-    
-    // Se tem arquivos anexados ou LinkedIn, vai direto para modo gerar
-    const hasAttachments = uploadedFiles.length > 0 || linkedinUrl.trim();
-    if (hasAttachments) {
-      params.set('mode', 'generate');
-    } else {
-      params.set('planning', 'true');
-    }
-    
-    if (jobDescription.trim()) {
-      params.set('job', encodeURIComponent(jobDescription.trim()));
-    }
-    
-    if (linkedinUrl.trim()) {
-      params.set('linkedin', encodeURIComponent(linkedinUrl.trim()));
-    }
-    
-    // Armazena arquivos no sessionStorage para o Editor recuperar
-    if (uploadedFiles.length > 0) {
-      // Converter arquivos para base64 e armazenar
-      const filePromises = uploadedFiles.map(file => {
-        return new Promise<{name: string, type: string, data: string}>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            resolve({
-              name: file.name,
-              type: file.type,
-              data: reader.result as string
-            });
-          };
-          reader.readAsDataURL(file);
-        });
-      });
+    requireAuth(() => {
+      const params = new URLSearchParams();
+      params.set('new', 'true');
       
-      Promise.all(filePromises).then(filesData => {
-        sessionStorage.setItem('aira_attached_files', JSON.stringify(filesData));
+      // Se tem arquivos anexados ou LinkedIn, vai direto para modo gerar
+      const hasAttachments = uploadedFiles.length > 0 || linkedinUrl.trim();
+      if (hasAttachments) {
+        params.set('mode', 'generate');
+      } else {
+        params.set('planning', 'true');
+      }
+      
+      if (jobDescription.trim()) {
+        params.set('job', encodeURIComponent(jobDescription.trim()));
+      }
+      
+      if (linkedinUrl.trim()) {
+        params.set('linkedin', encodeURIComponent(linkedinUrl.trim()));
+      }
+      
+      // Armazena arquivos no sessionStorage para o Editor recuperar
+      if (uploadedFiles.length > 0) {
+        // Converter arquivos para base64 e armazenar
+        const filePromises = uploadedFiles.map(file => {
+          return new Promise<{name: string, type: string, data: string}>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              resolve({
+                name: file.name,
+                type: file.type,
+                data: reader.result as string
+              });
+            };
+            reader.readAsDataURL(file);
+          });
+        });
         
-        // Build prompt
-        let prompt = initialPrompt.trim() || '';
-        if (!prompt) {
-          prompt = `Por favor, analise os ${uploadedFiles.length} documento(s) que anexei e extraia as informações para criar um currículo profissional otimizado.`;
-        }
-        if (jobDescription.trim()) {
-          prompt += ` Otimize para a seguinte vaga: ${jobDescription.trim().substring(0, 200)}...`;
-        }
-        params.set('prompt', encodeURIComponent(prompt));
-        
-        navigate(`/editor?${params.toString()}`);
-      });
-      return;
-    }
-    
-    // Build prompt without files
-    let prompt = initialPrompt.trim() || '';
-    if (!prompt && (jobDescription.trim() || linkedinUrl.trim())) {
-      prompt = 'Por favor, analise as informações que forneci e gere um currículo profissional otimizado.';
-    } else if (!prompt) {
-      prompt = 'Olá! Gostaria de criar um currículo profissional. Pode me ajudar?';
-    }
-    
-    params.set('prompt', encodeURIComponent(prompt));
-    navigate(`/editor?${params.toString()}`);
+        Promise.all(filePromises).then(filesData => {
+          sessionStorage.setItem('aira_attached_files', JSON.stringify(filesData));
+          
+          // Build prompt
+          let prompt = initialPrompt.trim() || '';
+          if (!prompt) {
+            prompt = `Por favor, analise os ${uploadedFiles.length} documento(s) que anexei e extraia as informações para criar um currículo profissional otimizado.`;
+          }
+          if (jobDescription.trim()) {
+            prompt += ` Otimize para a seguinte vaga: ${jobDescription.trim().substring(0, 200)}...`;
+          }
+          params.set('prompt', encodeURIComponent(prompt));
+          
+          navigateToEditor(`/editor?${params.toString()}`);
+        });
+        return;
+      }
+      
+      // Build prompt without files
+      let prompt = initialPrompt.trim() || '';
+      if (!prompt && (jobDescription.trim() || linkedinUrl.trim())) {
+        prompt = 'Por favor, analise as informações que forneci e gere um currículo profissional otimizado.';
+      } else if (!prompt) {
+        prompt = 'Olá! Gostaria de criar um currículo profissional. Pode me ajudar?';
+      }
+      
+      params.set('prompt', encodeURIComponent(prompt));
+      navigateToEditor(`/editor?${params.toString()}`);
+    });
   };
 
   const handleTemplateClick = (templateId: string) => {
-    navigate(`/editor?new=true&template=${templateId}`);
+    requireAuth(() => navigateToEditor(`/editor?new=true&template=${templateId}`));
   };
 
   const handleOpenResume = (id: string) => {
-    navigate(`/editor?id=${id}`);
+    requireAuth(() => navigateToEditor(`/editor?id=${id}`));
   };
 
   const handleDeleteResume = async (e: React.MouseEvent, id: string) => {
@@ -126,12 +150,12 @@ export default function Home() {
   };
 
   const handleNewResume = () => {
-    navigate('/editor?new=true');
+    requireAuth(() => navigateToEditor('/editor?new=true'));
   };
 
   const handleUseAsTemplate = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    navigate(`/editor?new=true&fromResume=${id}`);
+    requireAuth(() => navigateToEditor(`/editor?new=true&fromResume=${id}`));
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,15 +197,28 @@ export default function Home() {
           </div>
           
           <div className="flex items-center gap-3">
-            {user && (
-              <span className="text-sm text-muted-foreground hidden sm:block">
-                {user.email}
-              </span>
+            {isAuthenticated ? (
+              <>
+                <span className="text-sm text-muted-foreground hidden sm:block">
+                  {user?.email}
+                </span>
+                <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
+                  <LogOut className="w-5 h-5" />
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setAuthModalOpen(true)} className="gap-2">
+                <User className="w-4 h-4" />
+                Entrar
+              </Button>
             )}
-            <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
-              <LogOut className="w-5 h-5" />
-            </Button>
           </div>
+          
+          <AuthModal 
+            open={authModalOpen} 
+            onOpenChange={setAuthModalOpen}
+            onSuccess={handleAuthSuccess}
+          />
         </div>
       </header>
 
