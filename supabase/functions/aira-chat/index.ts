@@ -184,6 +184,25 @@ OPÇÕES DE ESTILO:
 - headerStyle: 'simple' | 'banner' | 'sidebar' | 'centered'
 - skillsStyle: 'tags' | 'bars' | 'dots' | 'simple'
 
+🧠 DETECÇÃO DE NOVAS INFORMAÇÕES PARA PERFIL:
+Ao receber informações NOVAS do usuário que NÃO estão no perfil atual (experiências, formação, habilidades, etc.):
+1. Execute a atualização do currículo normalmente
+2. Após o bloco resume_update, ADICIONE uma sugestão de atualização de perfil:
+
+\`\`\`profile_update_suggestion
+{
+  "detected_info": "breve descrição do que foi detectado",
+  "suggested_update": {
+    "experiences": ["nova experiência detectada"],
+    "skills": ["nova skill"],
+    "education": ["nova formação"]
+  },
+  "message": "Percebi que você mencionou [X]. Quer que eu salve isso no seu perfil para usar em currículos futuros?"
+}
+\`\`\`
+
+Só sugira atualização de perfil quando houver informação REALMENTE NOVA e RELEVANTE.
+
 FORMATO OBRIGATÓRIO (sempre inclua):
 \`\`\`resume_update
 {

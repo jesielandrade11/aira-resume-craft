@@ -47,6 +47,63 @@ export type Database = {
         }
         Relationships: []
       }
+      user_profiles: {
+        Row: {
+          bio: string | null
+          certifications: Json | null
+          created_at: string | null
+          education: Json | null
+          email: string | null
+          experiences: Json | null
+          full_name: string | null
+          id: string
+          languages: Json | null
+          linkedin: string | null
+          location: string | null
+          phone: string | null
+          preferences: Json | null
+          skills: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          bio?: string | null
+          certifications?: Json | null
+          created_at?: string | null
+          education?: Json | null
+          email?: string | null
+          experiences?: Json | null
+          full_name?: string | null
+          id?: string
+          languages?: Json | null
+          linkedin?: string | null
+          location?: string | null
+          phone?: string | null
+          preferences?: Json | null
+          skills?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Update: {
+          bio?: string | null
+          certifications?: Json | null
+          created_at?: string | null
+          education?: Json | null
+          email?: string | null
+          experiences?: Json | null
+          full_name?: string | null
+          id?: string
+          languages?: Json | null
+          linkedin?: string | null
+          location?: string | null
+          phone?: string | null
+          preferences?: Json | null
+          skills?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

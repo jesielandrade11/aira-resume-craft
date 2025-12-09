@@ -79,7 +79,7 @@ export function useAIRAChat({
       }
     }
 
-    // Clean the response text (remove JSON blocks)
+    // Clean the response text (remove JSON blocks but keep profile suggestions for UI)
     return content
       .replace(/```resume_update\n[\s\S]*?\n```/g, '')
       .replace(/```profile_update\n[\s\S]*?\n```/g, '')

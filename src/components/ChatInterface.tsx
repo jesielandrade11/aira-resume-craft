@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent } from 'react';
-import { Send, Paperclip, X, FileText, Sparkles, MessageSquare, Zap, Loader2, Wand2, Reply, Undo2 } from 'lucide-react';
+import { Send, Paperclip, X, FileText, Sparkles, MessageSquare, Zap, Loader2, Wand2, Reply, Undo2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage, ChatAttachment, ResumeData } from '@/types';
@@ -13,6 +13,12 @@ interface ActionButton {
   plan: string;
 }
 
+interface ProfileUpdateSuggestion {
+  detected_info: string;
+  suggested_update: Record<string, unknown>;
+  message: string;
+}
+
 interface ChatInterfaceProps {
   messages: ChatMessage[];
   isLoading: boolean;
@@ -22,6 +28,7 @@ interface ChatInterfaceProps {
   disabled?: boolean;
   jobDescription?: string;
   onResumeUpdate?: (data: Partial<ResumeData>) => void;
+  onProfileUpdate?: (data: Record<string, unknown>) => void;
   onUndo?: () => void;
   canUndo?: boolean;
   isModeLocked?: boolean;
@@ -36,6 +43,7 @@ export function ChatInterface({
   disabled,
   jobDescription,
   onResumeUpdate,
+  onProfileUpdate,
   onUndo,
   canUndo = false,
   isModeLocked = false
@@ -296,6 +304,9 @@ export function ChatInterface({
           // Remove resume_update blocks from display
           displayContent = displayContent.replace(/```resume_update[\s\S]*?```/g, '').trim();
           
+          // Parse profile update suggestions
+          let profileSuggestion: ProfileUpdateSuggestion | null = null;
+          
           if (message.role === 'assistant') {
             const actionMatch = message.content.match(/```action_button\s*\n([\s\S]*?)\n```/);
             if (actionMatch) {
@@ -304,6 +315,17 @@ export function ChatInterface({
                 displayContent = displayContent.replace(/```action_button\s*\n[\s\S]*?\n```/g, '').trim();
               } catch (e) {
                 console.error('Failed to parse action button:', e);
+              }
+            }
+            
+            // Check for profile update suggestion
+            const profileMatch = message.content.match(/```profile_update_suggestion\s*\n([\s\S]*?)\n```/);
+            if (profileMatch) {
+              try {
+                profileSuggestion = JSON.parse(profileMatch[1]);
+                displayContent = displayContent.replace(/```profile_update_suggestion\s*\n[\s\S]*?\n```/g, '').trim();
+              } catch (e) {
+                console.error('Failed to parse profile suggestion:', e);
               }
             }
           }
@@ -405,6 +427,21 @@ export function ChatInterface({
                   <Wand2 className="w-4 h-4 mr-2" />
                   {actionButton.label}
                 </Button>
+              )}
+              
+              {/* Profile Update Suggestion Button */}
+              {profileSuggestion && onProfileUpdate && (
+                <div className="mt-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                  <p className="text-sm text-foreground mb-2">{profileSuggestion.message}</p>
+                  <Button
+                    size="sm"
+                    onClick={() => onProfileUpdate(profileSuggestion.suggested_update)}
+                    className="gap-2"
+                  >
+                    <User className="w-4 h-4" />
+                    Atualizar Perfil
+                  </Button>
+                </div>
               )}
             </div>
           );
