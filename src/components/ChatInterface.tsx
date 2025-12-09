@@ -6,6 +6,7 @@ import { ChatMessage, ChatAttachment, ResumeData } from '@/types';
 import { ChatMode } from '@/hooks/useAIRAChat';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import airaAvatar from '@/assets/aira-avatar.png';
 
 interface ActionButton {
   label: string;
@@ -218,9 +219,11 @@ export function ChatInterface({
       <div className="chat-header p-4 border-b border-chat-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-aira-primary to-aira-secondary flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
+            <img 
+              src={airaAvatar} 
+              alt="AIRA" 
+              className="w-10 h-10 rounded-full object-cover object-top border-2 border-primary/20"
+            />
             <div>
               <h2 className="font-semibold text-foreground">AIRA</h2>
               <p className="text-xs text-muted-foreground">Sua arquiteta de currículos</p>
@@ -284,9 +287,11 @@ export function ChatInterface({
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center py-8">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-aira-primary to-aira-secondary flex items-center justify-center">
-              <Sparkles className="w-8 h-8 text-white" />
-            </div>
+            <img 
+              src={airaAvatar} 
+              alt="AIRA" 
+              className="w-16 h-16 mx-auto mb-4 rounded-full object-cover object-top border-2 border-primary/20"
+            />
             <h3 className="text-lg font-medium text-foreground mb-2">Olá! Eu sou a AIRA</h3>
             <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-4">
               {mode === 'planning' 
@@ -359,6 +364,15 @@ export function ChatInterface({
               )}
               
               <div className="flex items-start gap-2">
+                {/* AIRA Avatar for assistant messages */}
+                {message.role === 'assistant' && (
+                  <img 
+                    src={airaAvatar} 
+                    alt="AIRA" 
+                    className="w-8 h-8 rounded-full object-cover object-top flex-shrink-0 border border-primary/20"
+                  />
+                )}
+                
                 {/* Reply button for assistant messages */}
                 {message.role === 'assistant' && (
                   <button
@@ -372,7 +386,7 @@ export function ChatInterface({
                 
                 <div
                   className={cn(
-                    'max-w-[80%] rounded-2xl px-4 py-3',
+                    'max-w-[75%] rounded-2xl px-4 py-3',
                     message.role === 'user'
                       ? 'bg-aira-primary text-white rounded-br-md'
                       : 'bg-chat-message text-foreground rounded-bl-md'
