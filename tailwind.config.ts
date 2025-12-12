@@ -14,8 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        serif: ['Crimson Pro', 'Georgia', 'serif'],
+        sans: ['Space Grotesk', 'system-ui', 'sans-serif'],
+        serif: ['Space Grotesk', 'Georgia', 'serif'],
+        mono: ['JetBrains Mono', 'monospace'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -66,6 +67,7 @@ export default {
           primary: "hsl(var(--aira-primary))",
           secondary: "hsl(var(--aira-secondary))",
           accent: "hsl(var(--aira-accent))",
+          glow: "hsl(var(--aira-glow))",
         },
         chat: {
           bg: "hsl(var(--chat-bg))",

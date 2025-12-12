@@ -14,7 +14,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import airaAvatar from '@/assets/aira-avatar.png';
+import airaHero from '@/assets/aira-hero.png';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -238,32 +238,35 @@ export default function Home() {
       </header>
 
       <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-8 sm:space-y-12">
-        {/* Hero Section with AIRA background */}
-        <section className="relative text-center py-8 sm:py-16 space-y-4 sm:space-y-6 overflow-hidden">
-          {/* Background AIRA Image */}
-          <div className="absolute inset-0 flex justify-center items-end pointer-events-none">
-            <img 
-              src={airaAvatar} 
-              alt="" 
-              className="w-auto h-[70%] sm:h-[85%] object-cover object-top opacity-10 sm:opacity-15"
-              aria-hidden="true"
-            />
-          </div>
-          
-          <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium">
-              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              Powered by AI
+        {/* Hero Section with AIRA in front */}
+        <section className="relative py-8 sm:py-16 overflow-hidden">
+          <div className="flex flex-col-reverse lg:flex-row items-center gap-8 lg:gap-12">
+            {/* Text Content */}
+            <div className="flex-1 text-center lg:text-left space-y-4 sm:space-y-6 z-10">
+              <div className="inline-flex items-center gap-2 bg-primary/20 text-primary px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium border border-primary/30">
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                Powered by AI
+              </div>
+              
+              <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground leading-tight">
+                Crie seu currículo perfeito
+                <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent"> com inteligência artificial</span>
+              </h2>
+              
+              <p className="text-sm sm:text-lg text-muted-foreground max-w-xl">
+                A AIRA analisa a vaga desejada e gera um currículo otimizado para você se destacar.
+              </p>
             </div>
-            
-            <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground max-w-3xl mx-auto leading-tight px-2 mt-4">
-              Crie seu currículo perfeito
-              <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"> com inteligência artificial</span>
-            </h2>
-            
-            <p className="text-sm sm:text-lg text-muted-foreground max-w-2xl mx-auto px-2 mt-4">
-              A AIRA analisa a vaga desejada e gera um currículo otimizado para você se destacar.
-            </p>
+
+            {/* Hero Image - In Front */}
+            <div className="flex-shrink-0 relative">
+              <div className="absolute inset-0 bg-gradient-to-b from-primary/20 via-transparent to-transparent rounded-full blur-3xl scale-110" />
+              <img 
+                src={airaHero} 
+                alt="AIRA - Assistente de IA" 
+                className="relative w-64 sm:w-80 lg:w-96 h-auto object-contain drop-shadow-2xl"
+              />
+            </div>
           </div>
         </section>
 
