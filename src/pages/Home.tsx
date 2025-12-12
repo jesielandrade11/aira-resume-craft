@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight, Plus, Briefcase, Linkedin, Upload, FileText, Coins, Paperclip, X, LogOut, User } from 'lucide-react';
+import { Sparkles, ArrowRight, Plus, Briefcase, Upload, FileText, Coins, Paperclip, X, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -26,9 +26,7 @@ export default function Home() {
   
   const [jobDescription, setJobDescription] = useState('');
   const [initialPrompt, setInitialPrompt] = useState('');
-  const [linkedinUrl, setLinkedinUrl] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [linkedinPopoverOpen, setLinkedinPopoverOpen] = useState(false);
   const [attachPopoverOpen, setAttachPopoverOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalView, setAuthModalView] = useState<'login' | 'reset' | 'new-password'>('login');
@@ -80,8 +78,8 @@ export default function Home() {
       const params = new URLSearchParams();
       params.set('new', 'true');
       
-      // Se tem arquivos anexados ou LinkedIn, vai direto para modo gerar
-      const hasAttachments = uploadedFiles.length > 0 || linkedinUrl.trim();
+      // Se tem arquivos anexados, vai direto para modo gerar
+      const hasAttachments = uploadedFiles.length > 0;
       if (hasAttachments) {
         params.set('mode', 'generate');
       } else {
@@ -90,10 +88,6 @@ export default function Home() {
       
       if (jobDescription.trim()) {
         params.set('job', encodeURIComponent(jobDescription.trim()));
-      }
-      
-      if (linkedinUrl.trim()) {
-        params.set('linkedin', encodeURIComponent(linkedinUrl.trim()));
       }
       
       // Armazena arquivos no sessionStorage para o Editor recuperar
@@ -133,7 +127,7 @@ export default function Home() {
       
       // Build prompt without files
       let prompt = initialPrompt.trim() || '';
-      if (!prompt && (jobDescription.trim() || linkedinUrl.trim())) {
+      if (!prompt && jobDescription.trim()) {
         prompt = 'Por favor, analise as informações que forneci e gere um currículo profissional otimizado.';
       } else if (!prompt) {
         prompt = 'Olá! Gostaria de criar um currículo profissional. Pode me ajudar?';
@@ -185,13 +179,6 @@ export default function Home() {
 
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleLinkedinSave = () => {
-    if (linkedinUrl.trim()) {
-      toast.success('LinkedIn adicionado');
-    }
-    setLinkedinPopoverOpen(false);
   };
 
   return (
@@ -362,52 +349,7 @@ export default function Home() {
                       onChange={(e) => setInitialPrompt(e.target.value)}
                       className="min-h-[100px] resize-none pb-12"
                     />
-                    {/* Icons bar inside textarea */}
                     <div className="absolute bottom-2 left-2 flex items-center gap-1">
-                      {/* LinkedIn Popover */}
-                      <Popover open={linkedinPopoverOpen} onOpenChange={setLinkedinPopoverOpen}>
-                        <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className={`p-2 rounded-md hover:bg-muted transition-colors ${linkedinUrl ? 'text-[#0077B5] bg-[#0077B5]/10' : 'text-muted-foreground'}`}
-                            title="Adicionar LinkedIn"
-                          >
-                            <Linkedin className="w-5 h-5" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80" align="start">
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                              <Linkedin className="w-5 h-5 text-[#0077B5]" />
-                              <span className="font-medium text-sm">LinkedIn</span>
-                            </div>
-                            <Input
-                              type="url"
-                              placeholder="https://linkedin.com/in/seu-perfil"
-                              value={linkedinUrl}
-                              onChange={(e) => setLinkedinUrl(e.target.value)}
-                              className="h-9"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              A IA irá extrair informações do seu perfil
-                            </p>
-                            <div className="flex justify-end gap-2">
-                              {linkedinUrl && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => { setLinkedinUrl(''); setLinkedinPopoverOpen(false); }}
-                                >
-                                  Remover
-                                </Button>
-                              )}
-                              <Button size="sm" onClick={handleLinkedinSave}>
-                                {linkedinUrl ? 'Salvar' : 'Fechar'}
-                              </Button>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
 
                       {/* Attach Files Popover */}
                       <Popover open={attachPopoverOpen} onOpenChange={setAttachPopoverOpen}>
@@ -479,20 +421,12 @@ export default function Home() {
                   </div>
                   
                   {/* Show indicators when items are added */}
-                  {(linkedinUrl || uploadedFiles.length > 0) && (
+                  {uploadedFiles.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {linkedinUrl && (
-                        <div className="inline-flex items-center gap-1.5 bg-[#0077B5]/10 text-[#0077B5] px-2 py-1 rounded-full text-xs">
-                          <Linkedin className="w-3 h-3" />
-                          <span>LinkedIn adicionado</span>
-                        </div>
-                      )}
-                      {uploadedFiles.length > 0 && (
-                        <div className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-2 py-1 rounded-full text-xs">
-                          <Paperclip className="w-3 h-3" />
-                          <span>{uploadedFiles.length} arquivo(s)</span>
-                        </div>
-                      )}
+                      <div className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-2 py-1 rounded-full text-xs">
+                        <Paperclip className="w-3 h-3" />
+                        <span>{uploadedFiles.length} arquivo(s)</span>
+                      </div>
                     </div>
                   )}
                 </div>

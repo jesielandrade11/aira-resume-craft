@@ -253,30 +253,11 @@ serve(async (req) => {
     console.log("Chat mode:", mode);
     console.log("Job description provided:", !!jobDescription);
 
-    // Check if any message contains a LinkedIn URL for scraping
-    let linkedinData = null;
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage?.content) {
-      const linkedinMatch = lastMessage.content.match(/\[LINKEDIN URL PARA SCRAPING: (https?:\/\/[^\]]+)\]/);
-      if (linkedinMatch) {
-        console.log("LinkedIn URL detected:", linkedinMatch[1]);
-        // Note: Real LinkedIn scraping requires proper authorization
-        // For now, we'll instruct the AI to ask for the information manually
-        linkedinData = linkedinMatch[1];
-      }
-    }
-
     // Select system prompt based on mode
     const systemPrompt = mode === 'generate' ? GENERATE_PROMPT : PLANNING_PROMPT;
 
     // Build context message
     let contextMessage = "";
-    
-    if (linkedinData) {
-      contextMessage += `\n\n🔗 LINKEDIN DO USUÁRIO: ${linkedinData}`;
-      contextMessage += `\nNota: Não é possível acessar diretamente o LinkedIn. Pergunte ao usuário para copiar e colar as informações do perfil dele, ou peça para descrever sua experiência profissional.`;
-      contextMessage += `\nSeja proativo e peça: nome completo, cargo atual, experiências (empresa, período, descrição), formação acadêmica, e competências principais.\n`;
-    }
     
     if (jobDescription) {
       contextMessage += `\n\n📋 DESCRIÇÃO DA VAGA (ANALISE E EXTRAIA PALAVRAS-CHAVE):\n${jobDescription}\n`;

@@ -43,7 +43,6 @@ export default function Editor() {
   const fromResumeId = searchParams.get('fromResume'); // Use existing resume as template
   const initialJob = searchParams.get('job');
   const initialPrompt = searchParams.get('prompt');
-  const linkedinUrl = searchParams.get('linkedin');
   const isPlanning = searchParams.get('planning') === 'true';
   const forceGenerateMode = searchParams.get('mode') === 'generate';
 
@@ -315,7 +314,7 @@ export default function Editor() {
     // Just close, don't change anything
   }, []);
 
-  // Auto-send initial prompt if provided via URL (with attachments and LinkedIn)
+  // Auto-send initial prompt if provided via URL (with attachments)
   useEffect(() => {
     const processInitialData = async () => {
       if (hasAutoSentPrompt || isLoading) return;
@@ -342,11 +341,6 @@ export default function Editor() {
       // Build prompt with available data
       let fullPrompt = '';
       
-      if (linkedinUrl) {
-        const decodedLinkedin = decodeURIComponent(linkedinUrl);
-        fullPrompt += `[LINKEDIN URL PARA SCRAPING: ${decodedLinkedin}]\n\n`;
-      }
-      
       if (attachments.length > 0) {
         fullPrompt += `[${attachments.length} ARQUIVO(S) ANEXADO(S) - analise e extraia as informações]\n\n`;
       }
@@ -354,7 +348,7 @@ export default function Editor() {
       if (initialPrompt) {
         const decodedPrompt = decodeURIComponent(initialPrompt);
         fullPrompt += decodedPrompt;
-      } else if (linkedinUrl || initialJob || attachments.length > 0) {
+      } else if (initialJob || attachments.length > 0) {
         fullPrompt += 'Por favor, analise as informações fornecidas e gere um currículo profissional otimizado.';
       }
       
@@ -370,7 +364,7 @@ export default function Editor() {
     };
     
     processInitialData();
-  }, [initialPrompt, linkedinUrl, initialJob, isPlanning, forceGenerateMode, hasAutoSentPrompt, isLoading, sendMessage]);
+  }, [initialPrompt, initialJob, isPlanning, forceGenerateMode, hasAutoSentPrompt, isLoading, sendMessage]);
 
   const handleReset = () => {
     if (confirm('Tem certeza que deseja limpar tudo e começar do zero?')) {
