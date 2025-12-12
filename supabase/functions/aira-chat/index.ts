@@ -164,7 +164,7 @@ ${HR_EXPERT_KNOWLEDGE}
 - NÃO descreva o que você vai fazer
 - NÃO liste as mudanças feitas
 - NÃO diga "estou adicionando X" ou "vou modificar Y"
-- APENAS gere o bloco resume_update e uma confirmação de 1 linha
+- APENAS gere os blocos necessários e uma confirmação de 1 linha
 
 SUAS CAPACIDADES:
 - Criar/modificar currículos profissionais
@@ -184,26 +184,50 @@ OPÇÕES DE ESTILO:
 - headerStyle: 'simple' | 'banner' | 'sidebar' | 'centered'
 - skillsStyle: 'tags' | 'bars' | 'dots' | 'simple'
 
-🧠 DETECÇÃO DE NOVAS INFORMAÇÕES PARA PERFIL:
-Ao receber informações NOVAS do usuário que NÃO estão no perfil atual (experiências, formação, habilidades, etc.):
-1. Execute a atualização do currículo normalmente
-2. Após o bloco resume_update, ADICIONE uma sugestão de atualização de perfil:
+🧠 ATUALIZAÇÃO AUTOMÁTICA DO PERFIL DO USUÁRIO (MUITO IMPORTANTE):
+Sempre que o usuário fornecer informações pessoais ou profissionais NOVAS, você DEVE salvá-las no perfil permanente dele.
+Isso inclui: experiências, formação, habilidades, idiomas, certificações, dados pessoais, bio, etc.
 
-\`\`\`profile_update_suggestion
+SEMPRE que receber informações novas, inclua o bloco profile_update APÓS o resume_update:
+
+\`\`\`profile_update
 {
-  "detected_info": "breve descrição do que foi detectado",
-  "suggested_update": {
-    "experiences": ["nova experiência detectada"],
-    "skills": ["nova skill"],
-    "education": ["nova formação"]
-  },
-  "message": "Percebi que você mencionou [X]. Quer que eu salve isso no seu perfil para usar em currículos futuros?"
+  "fullName": "se mencionado",
+  "email": "se mencionado",
+  "phone": "se mencionado", 
+  "location": "se mencionado",
+  "linkedin": "se mencionado",
+  "bio": "se mencionado resumo sobre a pessoa",
+  "experiences": [
+    {
+      "company": "Empresa",
+      "position": "Cargo",
+      "startDate": "2020",
+      "endDate": "2024",
+      "description": "descrição"
+    }
+  ],
+  "skills": ["skill1", "skill2"],
+  "education": [
+    {
+      "institution": "Universidade",
+      "degree": "Bacharelado",
+      "field": "Administração",
+      "startDate": "2016",
+      "endDate": "2020"
+    }
+  ],
+  "languages": [
+    {"name": "Inglês", "proficiency": "Avançado"}
+  ],
+  "certifications": ["Certificação X"]
 }
 \`\`\`
 
-Só sugira atualização de perfil quando houver informação REALMENTE NOVA e RELEVANTE.
+INCLUA APENAS os campos que foram mencionados/atualizados. Campos não mencionados devem ser omitidos.
+Isso permite que a IA use essas informações em conversas e currículos futuros!
 
-FORMATO OBRIGATÓRIO (sempre inclua):
+FORMATO OBRIGATÓRIO (sempre inclua para mudanças no currículo):
 \`\`\`resume_update
 {
   "action": "update",
@@ -211,7 +235,7 @@ FORMATO OBRIGATÓRIO (sempre inclua):
 }
 \`\`\`
 
-RESPOSTA: Apenas "✓ Feito!" ou confirmação de 1 linha. NADA MAIS.`;
+RESPOSTA: Apenas "✓ Feito!" ou "✓ Perfil e currículo atualizados!" (se atualizou o perfil). NADA MAIS.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

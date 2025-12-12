@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, WheelEvent } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ResumeData, UserProfile, UserCredits, emptyResume, emptyUserProfile, exampleResume } from '@/types';
+import { ResumeData, emptyResume, exampleResume } from '@/types';
 import { ResumePreview } from '@/components/ResumePreview';
 import { ChatInterface } from '@/components/ChatInterface';
 import { JobDescriptionPanel } from '@/components/JobDescriptionPanel';
@@ -48,7 +48,7 @@ export default function Editor() {
   const forceGenerateMode = searchParams.get('mode') === 'generate';
 
   const { resumes, saveResume } = useResumes();
-  const { profile: userProfile, updateProfile: handleProfileUpdate } = useUserProfile();
+  const { profile: userProfile, updateProfile: handleProfileUpdate, useCredits, hasUnlimited, fetchProfile } = useUserProfile();
 
   const [resume, setResume] = useState<ResumeData>(() => {
     // If template specified, use template styles
@@ -70,10 +70,12 @@ export default function Editor() {
   const [hasAutoSentPrompt, setHasAutoSentPrompt] = useState(false);
   const [hasAutoSaved, setHasAutoSaved] = useState(false);
 
-  const [credits, setCredits] = useState<UserCredits>(() => {
-    // Força créditos ilimitados para testes - ignora localStorage
-    return { total: INITIAL_CREDITS, used: 0, remaining: INITIAL_CREDITS };
-  });
+  // Credits derived from userProfile
+  const credits = {
+    total: userProfile.credits,
+    used: 0,
+    remaining: hasUnlimited() ? 9999 : userProfile.credits,
+  };
 
   const [jobDescription, setJobDescription] = useState(() => {
     // If job passed via URL, use it
@@ -178,36 +180,44 @@ export default function Editor() {
     localStorage.setItem(STORAGE_KEYS.jobDescription, jobDescription);
   }, [jobDescription]);
 
-  // Handle payment success - add credits
+  // Handle payment success - verify and add credits
   useEffect(() => {
     const payment = searchParams.get('payment');
-    const creditsParam = searchParams.get('credits');
+    const sessionId = searchParams.get('session_id');
+    const packageId = searchParams.get('package');
     
-    if (payment === 'success' && creditsParam) {
-      const creditsToAdd = parseInt(creditsParam, 10);
+    if (payment === 'success' && sessionId) {
+      // Process payment via edge function
+      const processPayment = async () => {
+        try {
+          const { error } = await supabase.functions.invoke('process-payment', {
+            body: { sessionId },
+          });
+          
+          if (error) throw error;
+          
+          // Refresh profile to get updated credits
+          await fetchProfile();
+          
+          if (packageId === 'unlimited') {
+            toast.success('🎉 Assinatura ilimitada ativada! Gere quantos currículos quiser.');
+          } else {
+            toast.success('🎉 Créditos adicionados com sucesso!');
+          }
+        } catch (error) {
+          console.error('Error processing payment:', error);
+          // Still try to refresh profile
+          await fetchProfile();
+        }
+      };
       
-      if (creditsToAdd === -1) {
-        setCredits({
-          total: 9999,
-          used: 0,
-          remaining: 9999,
-        });
-        toast.success('🎉 Assinatura ilimitada ativada! Gere quantos currículos quiser.');
-      } else if (creditsToAdd > 0) {
-        setCredits(prev => ({
-          total: prev.total + creditsToAdd,
-          used: prev.used,
-          remaining: prev.remaining + creditsToAdd,
-        }));
-        toast.success(`🎉 ${creditsToAdd} créditos adicionados com sucesso!`);
-      }
-      
+      processPayment();
       navigate('/editor', { replace: true });
     } else if (payment === 'canceled') {
       toast.error('Pagamento cancelado.');
       navigate('/editor', { replace: true });
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, fetchProfile]);
 
   const handleResumeUpdate = useCallback((data: Partial<ResumeData>) => {
     setResume(prev => {
@@ -247,19 +257,15 @@ export default function Editor() {
 
   // Profile update is now handled by useUserProfile hook
 
-  const handleCreditsUsed = useCallback((amount: number) => {
-    setCredits(prev => {
-      const newRemaining = Math.max(0, prev.remaining - amount);
-      if (newRemaining <= 0 && prev.remaining > 0) {
-        setTimeout(() => setShowBuyCreditsModal(true), 500);
-      }
-      return {
-        ...prev,
-        used: prev.used + amount,
-        remaining: newRemaining,
-      };
-    });
-  }, []);
+  const handleCreditsUsed = useCallback(async (amount: number) => {
+    // If unlimited, skip credit check
+    if (hasUnlimited()) return;
+    
+    const success = await useCredits(amount);
+    if (!success) {
+      setTimeout(() => setShowBuyCreditsModal(true), 500);
+    }
+  }, [useCredits, hasUnlimited]);
 
   const [savedJobDescription, setSavedJobDescription] = useState(jobDescription);
 
@@ -426,7 +432,7 @@ export default function Editor() {
     setIsPanelCollapsed(!isPanelCollapsed);
   };
 
-  const noCredits = credits.remaining <= 0;
+  const noCredits = !hasUnlimited() && userProfile.credits <= 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

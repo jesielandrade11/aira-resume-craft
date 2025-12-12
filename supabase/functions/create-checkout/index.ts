@@ -13,13 +13,13 @@ const PACKAGES = {
     credits: 10,
     mode: "payment" as const,
   },
-  credits_50: {
-    priceId: "price_1ScCdUIzG7NGcHuZAiwKP3sp",
-    credits: 50,
+  credits_30: {
+    priceId: "price_1SdfwGIzG7NGcHuZxFwHbQa3",
+    credits: 30,
     mode: "payment" as const,
   },
   unlimited: {
-    priceId: "price_1ScCdqIzG7NGcHuZTZ4uURWF",
+    priceId: "price_1SdfwTIzG7NGcHuZkDFkyZhe",
     credits: -1, // -1 means unlimited
     mode: "subscription" as const,
   },
@@ -66,7 +66,7 @@ serve(async (req) => {
         },
       ],
       mode: selectedPackage.mode,
-      success_url: `${origin}/?payment=success&package=${packageId}&credits=${selectedPackage.credits}`,
+      success_url: `${origin}/editor?payment=success&session_id={CHECKOUT_SESSION_ID}&package=${packageId}`,
       cancel_url: `${origin}/?payment=canceled`,
       metadata: {
         packageId,
