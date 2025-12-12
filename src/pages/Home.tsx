@@ -237,12 +237,38 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-8 sm:space-y-12">
+      <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-8 sm:space-y-12 relative">
+        {/* Background Pattern */}
+        <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-primary/5 via-transparent to-transparent rounded-full blur-3xl" />
+          <div className="absolute top-1/3 left-0 w-[500px] h-[500px] bg-gradient-to-r from-accent/5 via-transparent to-transparent rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-gradient-to-t from-primary/3 via-transparent to-transparent rounded-full blur-3xl" />
+          {/* Subtle grid pattern */}
+          <div className="absolute inset-0 opacity-[0.015]" style={{
+            backgroundImage: `linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)`,
+            backgroundSize: '60px 60px'
+          }} />
+        </div>
+
         {/* Hero Section - Side by Side */}
-        <section className="relative py-8 sm:py-16">
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-            {/* Text Content */}
-            <div className="text-center lg:text-left space-y-5 sm:space-y-6 order-2 lg:order-1">
+        <section className="relative py-12 sm:py-20 lg:py-24">
+          <div className="flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-16">
+            {/* AIRA Image - Left side */}
+            <div className="flex-shrink-0 order-1">
+              <div className="relative">
+                {/* Decorative elements */}
+                <div className="absolute -inset-6 bg-gradient-to-br from-primary/10 via-accent/5 to-transparent rounded-full blur-2xl" />
+                <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-accent/10 rounded-full blur-xl" />
+                <img 
+                  src={airaAvatar} 
+                  alt="AIRA - Sua Arquiteta de Currículos" 
+                  className="relative w-64 sm:w-80 lg:w-96 h-auto object-contain drop-shadow-2xl"
+                />
+              </div>
+            </div>
+
+            {/* Text Content - Right side */}
+            <div className="text-center lg:text-left space-y-5 sm:space-y-6 max-w-xl order-2">
               <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium border border-primary/20">
                 <Sparkles className="w-4 h-4" />
                 Powered by AI
@@ -252,31 +278,19 @@ export default function Home() {
                 Olá, eu sou a <span className="text-primary">AIRA</span>
               </h2>
               
-              <p className="text-base sm:text-lg text-muted-foreground max-w-lg">
+              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
                 Sua arquiteta de currículos com inteligência artificial. Vou te ajudar a criar o currículo perfeito para conquistar a vaga dos seus sonhos.
               </p>
               
-              <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
+              <div className="flex flex-wrap gap-4 justify-center lg:justify-start pt-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card px-3 py-2 rounded-lg border border-border/50">
+                  <div className="w-2 h-2 rounded-full bg-accent" />
                   Análise inteligente de vagas
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card px-3 py-2 rounded-lg border border-border/50">
+                  <div className="w-2 h-2 rounded-full bg-accent" />
                   Otimização automática
                 </div>
-              </div>
-            </div>
-
-            {/* AIRA Image */}
-            <div className="flex justify-center lg:justify-end order-1 lg:order-2">
-              <div className="relative">
-                <div className="absolute -inset-4 bg-gradient-to-br from-primary/10 via-transparent to-accent/10 rounded-full blur-2xl" />
-                <img 
-                  src={airaAvatar} 
-                  alt="AIRA - Sua Arquiteta de Currículos" 
-                  className="relative w-56 sm:w-72 lg:w-80 h-auto object-contain"
-                />
               </div>
             </div>
           </div>
