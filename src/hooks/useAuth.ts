@@ -82,6 +82,16 @@ export function useAuth() {
     return { error };
   }, []);
 
+  const signInWithLinkedIn = useCallback(async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'linkedin_oidc',
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
+    return { error };
+  }, []);
+
   return {
     user,
     session,
@@ -92,6 +102,7 @@ export function useAuth() {
     resetPassword,
     updatePassword,
     signInWithGoogle,
+    signInWithLinkedIn,
     isAuthenticated: !!user,
   };
 }
