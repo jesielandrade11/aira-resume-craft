@@ -239,104 +239,85 @@ export default function Home() {
       </header>
 
       <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-8 sm:space-y-12 relative">
-        {/* Background Pattern */}
-        <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-primary/5 via-transparent to-transparent rounded-full blur-3xl" />
-          <div className="absolute top-1/3 left-0 w-[500px] h-[500px] bg-gradient-to-r from-accent/5 via-transparent to-transparent rounded-full blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-gradient-to-t from-primary/3 via-transparent to-transparent rounded-full blur-3xl" />
-          {/* Subtle grid pattern */}
-          <div className="absolute inset-0 opacity-[0.015]" style={{
-            backgroundImage: `linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)`,
-            backgroundSize: '60px 60px'
-          }} />
-        </div>
-
-        {/* Hero Section - Side by Side */}
-        <section className="relative py-12 sm:py-20 lg:py-24">
-          <div className="flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-16">
-            {/* AIRA Image - Left side */}
-            <motion.div 
-              className="flex-shrink-0 order-1"
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-            >
-              <div className="relative">
-                {/* Decorative elements */}
-                <motion.div 
-                  className="absolute -inset-6 bg-gradient-to-br from-primary/10 via-accent/5 to-transparent rounded-full blur-2xl"
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.8, delay: 0.2 }}
-                />
-                <motion.div 
-                  className="absolute -bottom-4 -right-4 w-32 h-32 bg-accent/10 rounded-full blur-xl"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.6, delay: 0.4 }}
-                />
-                <motion.img 
-                  src={airaAvatar} 
-                  alt="AIRA - Sua Arquiteta de Currículos" 
-                  className="relative w-64 sm:w-80 lg:w-96 h-auto object-contain drop-shadow-2xl"
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.5, delay: 0.1 }}
-                />
-              </div>
-            </motion.div>
-
-            {/* Text Content - Right side */}
-            <motion.div 
-              className="text-center lg:text-left space-y-5 sm:space-y-6 max-w-xl order-2"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
-            >
+        {/* Hero Section - Full Width with Mint Background */}
+        <section className="relative -mx-3 sm:-mx-4 px-3 sm:px-4 py-16 sm:py-24 lg:py-28 overflow-hidden">
+          {/* Subtle decorative elements */}
+          <div className="absolute top-20 right-10 w-32 h-32 border border-primary/10 rounded-full" />
+          <div className="absolute bottom-20 left-20 w-24 h-24 border border-primary/10 rounded-full" />
+          <div className="absolute top-1/2 right-1/4 w-2 h-2 bg-primary/20 rounded-full" />
+          <div className="absolute top-1/3 left-1/3 w-3 h-3 bg-accent/30 rounded-full" />
+          
+          <div className="container mx-auto">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-4">
+              {/* AIRA Image - Left side */}
               <motion.div 
-                className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium border border-primary/20"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.3 }}
+                className="flex-shrink-0 order-1 lg:order-1 lg:w-1/2"
+                initial={{ opacity: 0, x: -60 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.7, ease: "easeOut" }}
               >
-                <Sparkles className="w-4 h-4" />
-                Powered by AI
-              </motion.div>
-              
-              <motion.h2 
-                className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground leading-tight"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.4 }}
-              >
-                Olá, eu sou a <span className="text-primary">AIRA</span>
-              </motion.h2>
-              
-              <motion.p 
-                className="text-base sm:text-lg text-muted-foreground leading-relaxed"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.5 }}
-              >
-                Sua arquiteta de currículos com inteligência artificial. Vou te ajudar a criar o currículo perfeito para conquistar a vaga dos seus sonhos.
-              </motion.p>
-              
-              <motion.div 
-                className="flex flex-wrap gap-4 justify-center lg:justify-start pt-2"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.6 }}
-              >
-                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card px-3 py-2 rounded-lg border border-border/50">
-                  <div className="w-2 h-2 rounded-full bg-accent" />
-                  Análise inteligente de vagas
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card px-3 py-2 rounded-lg border border-border/50">
-                  <div className="w-2 h-2 rounded-full bg-accent" />
-                  Otimização automática
+                <div className="relative flex justify-center lg:justify-start">
+                  <motion.img 
+                    src={airaAvatar} 
+                    alt="AIRA - Sua Arquiteta de Currículos" 
+                    className="relative w-72 sm:w-96 lg:w-[420px] h-auto object-contain"
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.6, delay: 0.1 }}
+                  />
                 </div>
               </motion.div>
-            </motion.div>
+
+              {/* Text Content - Right side */}
+              <motion.div 
+                className="text-center lg:text-left space-y-6 sm:space-y-8 max-w-lg order-2 lg:order-2 lg:w-1/2"
+                initial={{ opacity: 0, x: 60 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
+              >
+                <motion.h1 
+                  className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-[1.1] tracking-tight"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.3 }}
+                >
+                  Olá, eu sou a{" "}
+                  <span className="text-primary inline-block">AIRA!</span>
+                </motion.h1>
+                
+                <motion.p 
+                  className="text-lg sm:text-xl text-muted-foreground leading-relaxed"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.4 }}
+                >
+                  Sua arquiteta de currículos com inteligência artificial. Vou te ajudar a criar o currículo perfeito para conquistar a vaga dos seus sonhos.
+                </motion.p>
+                
+                <motion.div 
+                  className="flex flex-wrap gap-4 justify-center lg:justify-start pt-2"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.5 }}
+                >
+                  <Button 
+                    size="lg" 
+                    variant="outline"
+                    className="px-8 py-6 text-base font-semibold border-2 border-foreground hover:bg-foreground hover:text-background transition-all"
+                    onClick={() => document.getElementById('quick-start')?.scrollIntoView({ behavior: 'smooth' })}
+                  >
+                    Criar Currículo
+                  </Button>
+                  <Button 
+                    size="lg"
+                    className="px-8 py-6 text-base font-semibold bg-foreground text-background hover:bg-foreground/90 transition-all"
+                    onClick={() => document.getElementById('templates')?.scrollIntoView({ behavior: 'smooth' })}
+                  >
+                    Ver Templates
+                  </Button>
+                </motion.div>
+              </motion.div>
+            </div>
           </div>
         </section>
 
