@@ -52,17 +52,20 @@ export type Database = {
           bio: string | null
           certifications: Json | null
           created_at: string | null
+          credits: number | null
           education: Json | null
           email: string | null
           experiences: Json | null
           full_name: string | null
           id: string
+          is_unlimited: boolean | null
           languages: Json | null
           linkedin: string | null
           location: string | null
           phone: string | null
           preferences: Json | null
           skills: Json | null
+          unlimited_until: string | null
           updated_at: string | null
           user_id: string
         }
@@ -70,17 +73,20 @@ export type Database = {
           bio?: string | null
           certifications?: Json | null
           created_at?: string | null
+          credits?: number | null
           education?: Json | null
           email?: string | null
           experiences?: Json | null
           full_name?: string | null
           id?: string
+          is_unlimited?: boolean | null
           languages?: Json | null
           linkedin?: string | null
           location?: string | null
           phone?: string | null
           preferences?: Json | null
           skills?: Json | null
+          unlimited_until?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -88,17 +94,20 @@ export type Database = {
           bio?: string | null
           certifications?: Json | null
           created_at?: string | null
+          credits?: number | null
           education?: Json | null
           email?: string | null
           experiences?: Json | null
           full_name?: string | null
           id?: string
+          is_unlimited?: boolean | null
           languages?: Json | null
           linkedin?: string | null
           location?: string | null
           phone?: string | null
           preferences?: Json | null
           skills?: Json | null
+          unlimited_until?: string | null
           updated_at?: string | null
           user_id?: string
         }

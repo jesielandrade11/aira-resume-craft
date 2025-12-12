@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { ChatMessage, ChatAttachment, ResumeData, UserProfile } from '@/types';
+import { toast } from 'sonner';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aira-chat`;
 
@@ -51,6 +52,8 @@ export function useAIRAChat({
   }, [onResumeUpdate]);
 
   const parseAIResponse = useCallback((content: string, currentResume: ResumeData) => {
+    let profileUpdated = false;
+    
     // Check for resume updates
     const resumeMatch = content.match(/```resume_update\n([\s\S]*?)\n```/);
     if (resumeMatch) {
@@ -66,23 +69,31 @@ export function useAIRAChat({
       }
     }
 
-    // Check for profile updates
+    // Check for profile updates (automatic save)
     const profileMatch = content.match(/```profile_update\n([\s\S]*?)\n```/);
     if (profileMatch) {
       try {
-        const updateData = JSON.parse(profileMatch[1]);
-        if (updateData.action === 'update' && updateData.data) {
-          onProfileUpdate(updateData.data);
-        }
+        const profileData = JSON.parse(profileMatch[1]);
+        // Call profile update with the parsed data directly
+        onProfileUpdate(profileData);
+        profileUpdated = true;
       } catch (e) {
         console.error('Error parsing profile update:', e);
       }
     }
 
-    // Clean the response text (remove JSON blocks but keep profile suggestions for UI)
+    // Show toast if profile was updated
+    if (profileUpdated) {
+      toast.success('✓ Informações salvas no seu perfil!', {
+        description: 'Usarei esses dados em currículos futuros.'
+      });
+    }
+
+    // Clean the response text (remove JSON blocks)
     return content
       .replace(/```resume_update\n[\s\S]*?\n```/g, '')
       .replace(/```profile_update\n[\s\S]*?\n```/g, '')
+      .replace(/```profile_update_suggestion\n[\s\S]*?\n```/g, '')
       .trim();
   }, [onResumeUpdate, onProfileUpdate, pushToUndoHistory]);
 

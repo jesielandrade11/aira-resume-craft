@@ -21,6 +21,9 @@ interface DBUserProfile {
   languages: unknown;
   certifications: unknown;
   preferences: unknown;
+  credits: number;
+  is_unlimited: boolean;
+  unlimited_until: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -68,6 +71,9 @@ export function useUserProfile() {
           certifications: Array.isArray(dbProfile.certifications) ? dbProfile.certifications as string[] : [],
           projects: [],
           preferences: (dbProfile.preferences as UserProfile['preferences']) || {},
+          credits: dbProfile.credits ?? 5,
+          isUnlimited: dbProfile.is_unlimited ?? false,
+          unlimitedUntil: dbProfile.unlimited_until,
           createdAt: dbProfile.created_at,
           updatedAt: dbProfile.updated_at,
         };
@@ -137,11 +143,66 @@ export function useUserProfile() {
     }
   }, [user, profile]);
 
+  // Check if user has unlimited subscription
+  const hasUnlimited = useCallback(() => {
+    if (!profile.isUnlimited) return false;
+    if (!profile.unlimitedUntil) return false;
+    return new Date(profile.unlimitedUntil) > new Date();
+  }, [profile.isUnlimited, profile.unlimitedUntil]);
+
+  // Use credits - returns true if successful
+  const useCredits = useCallback(async (amount: number): Promise<boolean> => {
+    if (!user) return false;
+    
+    // If unlimited, always allow
+    if (hasUnlimited()) return true;
+    
+    // Check if enough credits
+    if (profile.credits < amount) return false;
+    
+    const newCredits = profile.credits - amount;
+    
+    // Optimistic update
+    setProfile(prev => ({ ...prev, credits: newCredits }));
+    
+    // Update database
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ credits: newCredits })
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      // Rollback on error
+      setProfile(prev => ({ ...prev, credits: prev.credits + amount }));
+      console.error('Error using credits:', error);
+      return false;
+    }
+  }, [user, profile.credits, hasUnlimited]);
+
+  // Add credits (after purchase)
+  const addCredits = useCallback(async (amount: number) => {
+    if (!user) return;
+    
+    const newCredits = profile.credits + amount;
+    setProfile(prev => ({ ...prev, credits: newCredits }));
+    
+    await supabase
+      .from('user_profiles')
+      .update({ credits: newCredits })
+      .eq('user_id', user.id);
+  }, [user, profile.credits]);
+
   return {
     profile,
     isLoading,
     isSaving,
     updateProfile,
     fetchProfile,
+    useCredits,
+    addCredits,
+    hasUnlimited,
   };
 }

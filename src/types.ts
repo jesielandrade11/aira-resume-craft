@@ -143,6 +143,9 @@ export interface UserProfile {
     industries?: string[];
     careerGoals?: string;
   };
+  credits: number;
+  isUnlimited: boolean;
+  unlimitedUntil?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -288,6 +291,9 @@ export const emptyUserProfile: UserProfile = {
   certifications: [],
   projects: [],
   preferences: {},
+  credits: 5,
+  isUnlimited: false,
+  unlimitedUntil: null,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
