@@ -14,7 +14,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import airaHero from '@/assets/aira-hero.png';
+import airaAvatar from '@/assets/aira-avatar.png';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -238,34 +238,46 @@ export default function Home() {
       </header>
 
       <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-8 sm:space-y-12">
-        {/* Hero Section with AIRA in front */}
-        <section className="relative py-8 sm:py-16 overflow-hidden">
-          <div className="flex flex-col-reverse lg:flex-row items-center gap-8 lg:gap-12">
+        {/* Hero Section - Side by Side */}
+        <section className="relative py-8 sm:py-16">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
             {/* Text Content */}
-            <div className="flex-1 text-center lg:text-left space-y-4 sm:space-y-6 z-10">
-              <div className="inline-flex items-center gap-2 bg-primary/20 text-primary px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium border border-primary/30">
-                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <div className="text-center lg:text-left space-y-5 sm:space-y-6 order-2 lg:order-1">
+              <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium border border-primary/20">
+                <Sparkles className="w-4 h-4" />
                 Powered by AI
               </div>
               
-              <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground leading-tight">
-                Crie seu currículo perfeito
-                <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent"> com inteligência artificial</span>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground leading-tight">
+                Olá, eu sou a <span className="text-primary">AIRA</span>
               </h2>
               
-              <p className="text-sm sm:text-lg text-muted-foreground max-w-xl">
-                A AIRA analisa a vaga desejada e gera um currículo otimizado para você se destacar.
+              <p className="text-base sm:text-lg text-muted-foreground max-w-lg">
+                Sua arquiteta de currículos com inteligência artificial. Vou te ajudar a criar o currículo perfeito para conquistar a vaga dos seus sonhos.
               </p>
+              
+              <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  Análise inteligente de vagas
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  Otimização automática
+                </div>
+              </div>
             </div>
 
-            {/* Hero Image - In Front */}
-            <div className="flex-shrink-0 relative">
-              <div className="absolute inset-0 bg-gradient-to-b from-primary/20 via-transparent to-transparent rounded-full blur-3xl scale-110" />
-              <img 
-                src={airaHero} 
-                alt="AIRA - Assistente de IA" 
-                className="relative w-64 sm:w-80 lg:w-96 h-auto object-contain drop-shadow-2xl"
-              />
+            {/* AIRA Image */}
+            <div className="flex justify-center lg:justify-end order-1 lg:order-2">
+              <div className="relative">
+                <div className="absolute -inset-4 bg-gradient-to-br from-primary/10 via-transparent to-accent/10 rounded-full blur-2xl" />
+                <img 
+                  src={airaAvatar} 
+                  alt="AIRA - Sua Arquiteta de Currículos" 
+                  className="relative w-56 sm:w-72 lg:w-80 h-auto object-contain"
+                />
+              </div>
             </div>
           </div>
         </section>

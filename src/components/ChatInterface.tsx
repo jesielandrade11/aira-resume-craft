@@ -6,7 +6,7 @@ import { ChatMessage, ChatAttachment, ResumeData } from '@/types';
 import { ChatMode } from '@/hooks/useAIRAChat';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import airaAvatar from '@/assets/aira-hero.png';
+import airaAvatar from '@/assets/aira-avatar.png';
 
 interface ActionButton {
   label: string;
