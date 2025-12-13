@@ -4,6 +4,7 @@ import { Mail, Phone, MapPin, Linkedin, Globe, Calendar, Plus, Trash2 } from 'lu
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { useState } from 'react';
+import DOMPurify from 'dompurify';
 
 interface ResumePreviewProps {
   resume: ResumeData;
@@ -785,7 +786,7 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
             </h3>
             <div 
               className={cn(getBodySize(), 'leading-relaxed whitespace-pre-wrap')}
-              dangerouslySetInnerHTML={{ __html: section.content }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.content) }}
             />
           </section>
         ))}
