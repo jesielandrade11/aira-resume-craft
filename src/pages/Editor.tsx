@@ -170,9 +170,27 @@ export default function Editor() {
     }
   }, [isNew, hasAutoSaved, currentResumeId, initialJob, templateId, resume, jobDescription, saveResume]);
 
-  // Save to localStorage
+  // Save to localStorage (with quota error handling)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.resume, JSON.stringify(resume));
+    try {
+      // Create a copy without large photo data to avoid quota issues
+      const resumeToStore = {
+        ...resume,
+        personalInfo: {
+          ...resume.personalInfo,
+          photo: resume.personalInfo.photo && resume.personalInfo.photo.length > 50000 
+            ? '' 
+            : resume.personalInfo.photo
+        }
+      };
+      localStorage.setItem(STORAGE_KEYS.resume, JSON.stringify(resumeToStore));
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+        console.warn('localStorage quota exceeded, skipping local save');
+      } else {
+        console.error('Error saving to localStorage:', error);
+      }
+    }
   }, [resume]);
 
   useEffect(() => {
