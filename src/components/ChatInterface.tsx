@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent } from 'react';
-import { Send, Paperclip, X, FileText, MessageSquare, Zap, Loader2, Wand2, Reply, Undo2, User, ChevronDown } from 'lucide-react';
+import { Send, Paperclip, X, FileText, MessageSquare, Zap, Loader2, Wand2, Reply, Undo2, User, ChevronDown, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage, ChatAttachment, ResumeData } from '@/types';
@@ -23,6 +23,7 @@ interface ProfileUpdateSuggestion {
 interface ChatInterfaceProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  thinkingStatus: string | null;
   mode: ChatMode;
   onModeChange: (mode: ChatMode) => void;
   onSendMessage: (content: string, attachments?: ChatAttachment[], overrideMode?: ChatMode, replyTo?: { id: string; content: string }) => void;
@@ -38,6 +39,7 @@ interface ChatInterfaceProps {
 export function ChatInterface({
   messages,
   isLoading,
+  thinkingStatus,
   mode,
   onModeChange,
   onSendMessage,
@@ -60,7 +62,7 @@ export function ChatInterface({
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, thinkingStatus]);
 
   const extractPdfContent = async (pdfBase64: string): Promise<Partial<ResumeData> | null> => {
     try {
@@ -213,7 +215,7 @@ export function ChatInterface({
   return (
     <div className="flex flex-col h-full bg-white relative">
       {/* Header - Simplified */}
-      <div className="flex items-center justify-between p-3 border-b bg-white z-10">
+      <div className="flex items-center justify-between p-3 border-b bg-white z-10 w-full">
         <div className="flex items-center gap-2">
           <div className="relative">
             <img
@@ -262,7 +264,8 @@ export function ChatInterface({
           let actionButton: ActionButton | null = null;
 
           displayContent = displayContent.replace(/```resume_update[\s\S]*?```/g, '').trim();
-          displayContent = displayContent.replace(/```profile_update[\s\S]*?```/g, '').trim(); // Also hide profile updates
+          displayContent = displayContent.replace(/```profile_update[\s\S]*?```/g, '').trim();
+          displayContent = displayContent.replace(/\[\[STATUS:.*?\]\]/g, '').trim(); // Ensure tags are hidden if accidentally persisted
 
           let profileSuggestion: ProfileUpdateSuggestion | null = null;
 
@@ -367,16 +370,25 @@ export function ChatInterface({
           );
         })}
 
-        {/* Loading Indicator */}
+        {/* Thinking Status or Loading */}
         {(isLoading || isExtractingPdf) && (
           <div className="flex justify-start animate-in fade-in duration-300">
-            <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-2">
+            <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-3">
               {isExtractingPdf ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
                   <span className="text-xs text-muted-foreground">Lendo PDF...</span>
                 </>
+              ) : thinkingStatus ? (
+                // New Thinking UI using the status from backend
+                <>
+                  <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-500" />
+                  <span className="text-xs text-muted-foreground animate-pulse font-medium">
+                    {thinkingStatus}
+                  </span>
+                </>
               ) : (
+                // Fallback loading dots
                 <div className="flex gap-1">
                   <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                   <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>

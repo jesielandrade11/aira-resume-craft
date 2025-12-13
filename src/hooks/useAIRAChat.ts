@@ -26,7 +26,6 @@ export function useAIRAChat({
   onProfileUpdate,
   onCreditsUsed,
 }: UseAIRAChatProps) {
-  // Load initial messages from localStorage
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -38,31 +37,25 @@ export function useAIRAChat({
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [thinkingStatus, setThinkingStatus] = useState<string | null>(null);
   const [mode, setMode] = useState<ChatMode>('generate');
   const [isModeLocked, setIsModeLocked] = useState(false);
 
-  // Previous job description to detect changes
   const prevJobDescriptionRef = useRef(jobDescription);
-
-  // Undo history
   const undoHistory = useRef<ResumeData[]>([]);
 
-  // Persist messages
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
   }, [messages]);
 
-  // Context Awareness: Detect Job Description Changes
   useEffect(() => {
     if (jobDescription && jobDescription !== prevJobDescriptionRef.current) {
-      // If job description changed and is not empty
       const isNew = prevJobDescriptionRef.current === '';
       prevJobDescriptionRef.current = jobDescription;
 
       setMode('planning');
       setIsModeLocked(true);
 
-      // Add system message if it's a new job context
       if (isNew) {
         setMessages(prev => [...prev, {
           id: crypto.randomUUID(),
@@ -125,14 +118,14 @@ export function useAIRAChat({
       toast.success('✓ Informações salvas no seu perfil!');
     }
 
-    // Clean response - Remove technical blocks
+    // Clean response
     return content
       .replace(/```resume_update\n[\s\S]*?\n```/g, '')
       .replace(/```profile_update\n[\s\S]*?\n```/g, '')
       .replace(/```profile_update_suggestion\n[\s\S]*?\n```/g, '')
-      // Attempt to hide thinking/log lines if they are not formatted
       .replace(/^Thinking:.*$/gm, '')
       .replace(/^Log:.*$/gm, '')
+      .replace(/\[\[STATUS:.*?\]\]/g, '') // Remove Status tags
       .trim();
   }, [onResumeUpdate, onProfileUpdate, pushToUndoHistory]);
 
@@ -142,7 +135,6 @@ export function useAIRAChat({
     overrideMode?: ChatMode,
     replyTo?: { id: string; content: string }
   ) => {
-    // Intent Detection
     let currentMode = overrideMode || mode;
     const lowerContent = content.toLowerCase();
 
@@ -154,7 +146,7 @@ export function useAIRAChat({
         lowerContent.includes('alterar'))
     ) {
       currentMode = 'generate';
-      setIsModeLocked(false); // Unlock if auto-detected
+      setIsModeLocked(false);
       setMode('generate');
     }
 
@@ -169,14 +161,30 @@ export function useAIRAChat({
 
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
+    setThinkingStatus("Processando..."); // Initial processing status
 
     const creditCost = currentMode === 'planning' ? 0.2 : 1;
     onCreditsUsed(creditCost);
 
     let assistantContent = '';
+    let currentStatusMatch = '';
 
     const upsertAssistant = (chunk: string) => {
       assistantContent += chunk;
+
+      // Check for Status updates in the full content stream
+      // We look for the LAST occurrence of [[STATUS: ...]]
+      const statusRegex = /\[\[STATUS: (.*?)\]\]/g;
+      let match;
+      let lastStatus = null;
+      while ((match = statusRegex.exec(assistantContent)) !== null) {
+        lastStatus = match[1];
+      }
+
+      if (lastStatus) {
+        setThinkingStatus(lastStatus);
+      }
+
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg?.role === 'assistant') {
@@ -269,6 +277,7 @@ export function useAIRAChat({
       }]);
     } finally {
       setIsLoading(false);
+      setThinkingStatus(null); // Clear status when done
     }
   }, [messages, resume, userProfile, jobDescription, mode, onCreditsUsed, parseAIResponse]);
 
@@ -296,6 +305,7 @@ export function useAIRAChat({
   return {
     messages,
     isLoading,
+    thinkingStatus,
     mode,
     setMode: setModeWithLock,
     sendMessage,

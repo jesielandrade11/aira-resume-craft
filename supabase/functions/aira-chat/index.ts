@@ -109,6 +109,15 @@ ${HR_EXPERT_KNOWLEDGE}
 5. NÃO use listas longas ou bullet points extensos.
 6. Seja como uma conversa de café, não uma palestra.
 
+🧠 STATUS DE PENSAMENTO (Obrigatório):
+Sempre que estiver analisando ou pensando, use a tag [[STATUS: mensagem]] no início ou meio da resposta.
+Exemplos:
+[[STATUS: Analisando requisitos da vaga...]]
+[[STATUS: Verificando compatibilidade...]]
+[[STATUS: Elaborando plano de ação...]]
+
+Essas tags NÃO aparecem pro usuário, servem para mostrar que você está trabalhando.
+
 📋 FLUXO DE CONVERSA:
 1. PRIMEIRO: Cumprimente brevemente e faça UMA pergunta sobre o objetivo ou situação atual
 2. DEPOIS: A cada resposta do usuário, faça mais UMA pergunta relevante
@@ -154,7 +163,7 @@ EXEMPLOS DE BOA COMUNICAÇÃO:
 "Analisando seu currículo, identifiquei os seguintes pontos: 1) Seu resumo profissional está genérico... 2) Suas experiências não têm métricas... 3) As competências estão desorganizadas... 4) O layout poderia ser melhor... 5) Faltam palavras-chave..."
 
 ✅ CERTO (conversacional):
-"Vi seu currículo! Parece que você tem bastante experiência em marketing. Me conta: qual é o tipo de vaga que você está buscando agora?"
+"[[STATUS: Lendo seu currículo...]] Vi seu currículo! Parece que você tem bastante experiência em marketing. Me conta: qual é o tipo de vaga que você está buscando agora?"
 
 Responda em português brasileiro. Seja calorosa mas profissional.`;
 
@@ -165,8 +174,14 @@ Você é uma especialista em RH e executa IMEDIATAMENTE as mudanças pedidas.
 ${HR_EXPERT_KNOWLEDGE}
 
 🎯 REGRA DE OURO: EXECUTE.
+- Use [[STATUS: ...]] para informar o que está fazendo.
 - APENAS gere o bloco resume_update.
 - DEPOIS, forneça um BREVE resumo (max 2 linhas) do que foi feito.
+
+Exemplo de STATUS:
+[[STATUS: Otimizando para ATS...]]
+[[STATUS: Ajustando layout e cores...]]
+[[STATUS: Reescrevendo resumo profissional...]]
 
 SUAS CAPACIDADES:
 - Criar/modificar currículos profissionais
@@ -213,8 +228,11 @@ FORMATO OBRIGATÓRIO (sempre inclua):
 }
 \`\`\`
 
-RESPOSTA: O bloco JSON acima, e logo abaixo um texto curto explicando o que foi feito.
-Exemplo: "✅ Atualizei seu resumo profissional e adicionei as competências da vaga. O que achou?"`;
+RESPOSTA: 
+[[STATUS: Aplicando mudanças...]]
+O bloco JSON acima.
+[[STATUS: Finalizando...]]
+Texto curto explicando o que foi feito.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -248,6 +266,20 @@ serve(async (req) => {
 
     // Build context message
     let contextMessage = "";
+
+    // CHECK FOR EMPTY PROFILE/RESUME
+    const hasResume = resume && (resume.personalInfo?.fullName || (resume.experience && resume.experience.length > 0));
+    const hasProfile = userProfile && (userProfile.fullName || (userProfile.experiences && userProfile.experiences.length > 0));
+
+    if (!hasResume && !hasProfile && !linkedinData) {
+      contextMessage += `\n\n⚠️ ATENÇÃO: O USUÁRIO NÃO TEM CURRÍCULO NEM PERFIL CADASTRADO.
+        
+        SE ele pedir para gerar um currículo:
+        1. GERE UM MODELO FICTÍCIO (Template) com dados de exemplo genéricos e campos [PREENCHER].
+        2. Use [[STATUS: Gerando modelo fictício...]]
+        3. Avise que é um modelo para ele preencher.
+        `;
+    }
 
     if (linkedinData) {
       contextMessage += `\n\n🔗 LINKEDIN DO USUÁRIO: ${linkedinData}`;
