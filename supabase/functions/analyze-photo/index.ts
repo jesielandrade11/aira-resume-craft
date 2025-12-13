@@ -5,35 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    const { imageBase64 } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    if (!imageBase64) {
-      throw new Error("Imagem não fornecida");
-    }
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `Você é um especialista em fotos profissionais para currículos. Analise a foto e retorne um JSON com:
+const SYSTEM_PROMPT = `Você é um especialista em fotos profissionais para currículos. Analise a foto e retorne um JSON com:
 {
   "suitable": boolean (se é adequada para currículo),
   "score": number (0-100, pontuação geral),
@@ -51,38 +23,80 @@ Critérios para uma boa foto de currículo:
 - Boa qualidade/resolução
 - Formato retrato (não selfie casual)
 
-RETORNE APENAS O JSON, sem texto adicional.`
-          },
+RETORNE APENAS O JSON, sem texto adicional.`;
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { imageBase64 } = await req.json();
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
+    }
+
+    if (!imageBase64) {
+      throw new Error("Imagem não fornecida");
+    }
+
+    console.log("Analyzing photo...");
+
+    // Prepare content for Gemini
+    // Remove data:image/xxx;base64, prefix if present
+    const base64Data = imageBase64.split(',')[1] || imageBase64;
+    const mimeType = imageBase64.split(';')[0].split(':')[1] || 'image/jpeg';
+
+    // Use Gemini 2.5 Flash
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
           {
             role: "user",
-            content: [
-              { type: "text", text: "Analise esta foto para uso em currículo profissional:" },
-              { type: "image_url", image_url: { url: imageBase64 } }
+            parts: [
+              { text: "Analise esta foto para uso em currículo profissional:" },
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data
+                }
+              }
             ]
           }
         ],
+        system_instruction: {
+          parts: [{ text: SYSTEM_PROMPT }]
+        },
+        generationConfig: {
+          temperature: 0.4,
+          response_mime_type: "application/json",
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error("Erro ao analisar imagem");
+      console.error("Gemini API error:", response.status, errorText);
+      throw new Error("Erro ao analisar imagem com Gemini");
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
-    
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!content) {
+      throw new Error("Não foi possível analisar a imagem");
+    }
+
     // Parse the JSON response
     let analysis;
     try {
-      // Extract JSON from the response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        analysis = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("JSON não encontrado na resposta");
-      }
+      analysis = JSON.parse(content);
     } catch (e) {
       console.error("Error parsing analysis:", e, content);
       analysis = {

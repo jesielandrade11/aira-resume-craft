@@ -1,38 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Helper logging function for debugging
-const logStep = (step: string, details?: Record<string, unknown>) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[AIRA-CHAT] ${step}${detailsStr}`);
-};
-
-// Credit costs per mode
-const CREDIT_COSTS: Record<string, number> = {
-  planning: 0,
-  generate: 1,
-};
-
-// Check if user has sufficient credits
-function hasCredits(profile: { credits: number | null; is_unlimited: boolean | null; unlimited_until: string | null }, mode: string): boolean {
-  // Check unlimited subscription
-  if (profile.is_unlimited && profile.unlimited_until) {
-    const unlimitedUntil = new Date(profile.unlimited_until);
-    if (unlimitedUntil > new Date()) {
-      return true;
-    }
-  }
-  
-  // Check credit balance
-  const cost = CREDIT_COSTS[mode] || 0;
-  const credits = profile.credits || 0;
-  return credits >= cost;
-}
 
 // Conhecimento especializado de RH integrado aos prompts
 const HR_EXPERT_KNOWLEDGE = `
@@ -193,7 +164,7 @@ ${HR_EXPERT_KNOWLEDGE}
 - NÃO descreva o que você vai fazer
 - NÃO liste as mudanças feitas
 - NÃO diga "estou adicionando X" ou "vou modificar Y"
-- APENAS gere os blocos necessários e uma confirmação de 1 linha
+- APENAS gere o bloco resume_update e uma confirmação de 1 linha
 
 SUAS CAPACIDADES:
 - Criar/modificar currículos profissionais
@@ -213,50 +184,26 @@ OPÇÕES DE ESTILO:
 - headerStyle: 'simple' | 'banner' | 'sidebar' | 'centered'
 - skillsStyle: 'tags' | 'bars' | 'dots' | 'simple'
 
-🧠 ATUALIZAÇÃO AUTOMÁTICA DO PERFIL DO USUÁRIO (MUITO IMPORTANTE):
-Sempre que o usuário fornecer informações pessoais ou profissionais NOVAS, você DEVE salvá-las no perfil permanente dele.
-Isso inclui: experiências, formação, habilidades, idiomas, certificações, dados pessoais, bio, etc.
+🧠 DETECÇÃO DE NOVAS INFORMAÇÕES PARA PERFIL:
+Ao receber informações NOVAS do usuário que NÃO estão no perfil atual (experiências, formação, habilidades, etc.):
+1. Execute a atualização do currículo normalmente
+2. Após o bloco resume_update, ADICIONE uma sugestão de atualização de perfil:
 
-SEMPRE que receber informações novas, inclua o bloco profile_update APÓS o resume_update:
-
-\`\`\`profile_update
+\`\`\`profile_update_suggestion
 {
-  "fullName": "se mencionado",
-  "email": "se mencionado",
-  "phone": "se mencionado", 
-  "location": "se mencionado",
-  "linkedin": "se mencionado",
-  "bio": "se mencionado resumo sobre a pessoa",
-  "experiences": [
-    {
-      "company": "Empresa",
-      "position": "Cargo",
-      "startDate": "2020",
-      "endDate": "2024",
-      "description": "descrição"
-    }
-  ],
-  "skills": ["skill1", "skill2"],
-  "education": [
-    {
-      "institution": "Universidade",
-      "degree": "Bacharelado",
-      "field": "Administração",
-      "startDate": "2016",
-      "endDate": "2020"
-    }
-  ],
-  "languages": [
-    {"name": "Inglês", "proficiency": "Avançado"}
-  ],
-  "certifications": ["Certificação X"]
+  "detected_info": "breve descrição do que foi detectado",
+  "suggested_update": {
+    "experiences": ["nova experiência detectada"],
+    "skills": ["nova skill"],
+    "education": ["nova formação"]
+  },
+  "message": "Percebi que você mencionou [X]. Quer que eu salve isso no seu perfil para usar em currículos futuros?"
 }
 \`\`\`
 
-INCLUA APENAS os campos que foram mencionados/atualizados. Campos não mencionados devem ser omitidos.
-Isso permite que a IA use essas informações em conversas e currículos futuros!
+Só sugira atualização de perfil quando houver informação REALMENTE NOVA e RELEVANTE.
 
-FORMATO OBRIGATÓRIO (sempre inclua para mudanças no currículo):
+FORMATO OBRIGATÓRIO (sempre inclua):
 \`\`\`resume_update
 {
   "action": "update",
@@ -264,7 +211,7 @@ FORMATO OBRIGATÓRIO (sempre inclua para mudanças no currículo):
 }
 \`\`\`
 
-RESPOSTA: Apenas "✓ Feito!" ou "✓ Perfil e currículo atualizados!" (se atualizou o perfil). NADA MAIS.`;
+RESPOSTA: Apenas "✓ Feito!" ou confirmação de 1 linha. NADA MAIS.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -272,82 +219,25 @@ serve(async (req) => {
   }
 
   try {
-    logStep("Function started");
-
-    // Initialize Supabase client with anon key for user auth
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-    );
-
-    // Verify authenticated user
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      logStep("ERROR: No authorization header");
-      return new Response(JSON.stringify({ error: "Authentication required" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    
-    if (userError || !userData.user) {
-      logStep("ERROR: Invalid user token", { error: userError?.message });
-      return new Response(JSON.stringify({ error: "Invalid authentication" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const user = userData.user;
-    logStep("User authenticated", { userId: user.id });
-
     const { messages, resume, userProfile, jobDescription, attachments, mode = 'planning' } = await req.json();
-    
-    logStep("Request received", { mode, messagesCount: messages?.length });
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
-    // SERVER-SIDE CREDIT VALIDATION
-    // Use service role to read credits (bypasses RLS for reading)
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('user_profiles')
-      .select('credits, is_unlimited, unlimited_until')
-      .eq('user_id', user.id)
-      .single();
-
-    if (profileError) {
-      logStep("ERROR: Failed to fetch profile", { error: profileError.message });
-      return new Response(JSON.stringify({ error: "Failed to verify credits" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
-    // Check if user has sufficient credits
-    if (!hasCredits(profile, mode)) {
-      logStep("ERROR: Insufficient credits", { 
-        credits: profile.credits, 
-        mode, 
-        cost: CREDIT_COSTS[mode] 
-      });
-      return new Response(JSON.stringify({ error: "Créditos insuficientes. Por favor, adicione mais créditos." }), {
-        status: 402,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    console.log("Chat mode:", mode);
+    console.log("Job description provided:", !!jobDescription);
 
-    logStep("Credit check passed", { credits: profile.credits, mode });
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    // Check if any message contains a LinkedIn URL for scraping
+    let linkedinData = null;
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.content) {
+      const linkedinMatch = lastMessage.content.match(/\[LINKEDIN URL PARA SCRAPING: (https?:\/\/[^\]]+)\]/);
+      if (linkedinMatch) {
+        console.log("LinkedIn URL detected:", linkedinMatch[1]);
+        linkedinData = linkedinMatch[1];
+      }
     }
 
     // Select system prompt based on mode
@@ -355,18 +245,24 @@ serve(async (req) => {
 
     // Build context message
     let contextMessage = "";
-    
+
+    if (linkedinData) {
+      contextMessage += `\n\n🔗 LINKEDIN DO USUÁRIO: ${linkedinData}`;
+      contextMessage += `\nNota: Não é possível acessar diretamente o LinkedIn. Pergunte ao usuário para copiar e colar as informações do perfil dele, ou peça para descrever sua experiência profissional.`;
+      contextMessage += `\nSeja proativo e peça: nome completo, cargo atual, experiências (empresa, período, descrição), formação acadêmica, e competências principais.\n`;
+    }
+
     if (jobDescription) {
       contextMessage += `\n\n📋 DESCRIÇÃO DA VAGA (ANALISE E EXTRAIA PALAVRAS-CHAVE):\n${jobDescription}\n`;
       contextMessage += `\n💡 INSTRUÇÕES: Identifique os requisitos técnicos, competências comportamentais e palavras-chave desta vaga para otimizar o currículo.\n`;
     }
-    
+
     if (userProfile && userProfile.fullName) {
       contextMessage += `\n\n👤 PERFIL DO USUÁRIO:\n${JSON.stringify(userProfile, null, 2)}\n`;
     }
-    
+
     if (resume) {
-      // Remove photo from resume to avoid token limit issues (base64 images are huge)
+      // Remove photo from resume to avoid token limit issues
       const resumeForContext = { ...resume };
       if (resumeForContext.personalInfo) {
         resumeForContext.personalInfo = { ...resumeForContext.personalInfo, photo: undefined };
@@ -374,92 +270,195 @@ serve(async (req) => {
       contextMessage += `\n\n📄 CURRÍCULO ATUAL:\n${JSON.stringify(resumeForContext, null, 2)}\n`;
     }
 
-    // Build messages array
-    const apiMessages = [
-      { 
-        role: "system", 
-        content: systemPrompt + contextMessage 
-      },
-      ...messages.map((msg: { role: string; content: string; attachments?: Array<{ type: string; base64?: string }> }) => {
-        // Handle attachments in messages
-        if (msg.attachments && msg.attachments.length > 0) {
-          const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [{ type: "text", text: msg.content || "Analise esta imagem" }];
-          
-          for (const attachment of msg.attachments) {
-            if (attachment.type === 'image' && attachment.base64) {
-              content.push({
-                type: "image_url",
-                image_url: { url: attachment.base64 }
-              });
-            }
+    // Transform messages to Gemini format
+    const geminiContents = messages.map((msg: any) => {
+      const parts: any[] = [];
+
+      if (msg.content) {
+        parts.push({ text: msg.content });
+      }
+
+      if (msg.attachments && msg.attachments.length > 0) {
+        for (const attachment of msg.attachments) {
+          if (attachment.type === 'image' && attachment.base64) {
+            // Remove data:image/xxx;base64, prefix if present
+            const base64Data = attachment.base64.split(',')[1] || attachment.base64;
+            const mimeType = attachment.base64.split(';')[0].split(':')[1] || 'image/jpeg';
+
+            parts.push({
+              inline_data: {
+                mime_type: mimeType,
+                data: base64Data
+              }
+            });
           }
-          
-          return { role: msg.role, content };
         }
-        
-        return { role: msg.role, content: msg.content };
-      })
-    ];
+      }
 
-    logStep("Sending request to AI Gateway", { messageCount: apiMessages.length });
+      // Map 'assistant' role to 'model' for Gemini
+      const role = msg.role === 'assistant' ? 'model' : 'user';
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      return { role, parts };
+    });
+
+    // Add system instruction
+    // Gemini API supports system_instruction field
+    const systemInstruction = {
+      parts: [{ text: systemPrompt + contextMessage }]
+    };
+
+    console.log("Sending request to Gemini API with", geminiContents.length, "messages");
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: apiMessages,
-        stream: true,
+        contents: geminiContents,
+        system_instruction: systemInstruction,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 8192,
+        }
       }),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Gemini API error:", response.status, errorText);
+
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes. Por favor, adicione mais créditos." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errorText = await response.text();
-      logStep("ERROR: AI gateway error", { status: response.status, error: errorText });
-      return new Response(JSON.stringify({ error: "Erro ao processar sua mensagem. Tente novamente." }), {
+
+      return new Response(JSON.stringify({ error: "Erro ao processar sua mensagem com Gemini. Tente novamente." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // DEDUCT CREDITS after successful AI response (only for generate mode)
-    const creditCost = CREDIT_COSTS[mode] || 0;
-    if (creditCost > 0 && !profile.is_unlimited) {
-      const newCredits = Math.max(0, (profile.credits || 0) - creditCost);
-      const { error: updateError } = await supabaseAdmin
-        .from('user_profiles')
-        .update({ credits: newCredits })
-        .eq('user_id', user.id);
+    // Create a TransformStream to convert Gemini's JSON stream to SSE format expected by the client
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const reader = response.body?.getReader();
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
 
-      if (updateError) {
-        logStep("Warning: Failed to deduct credits", { error: updateError.message });
-      } else {
-        logStep("Credits deducted", { cost: creditCost, remaining: newCredits });
-      }
+    if (!reader) {
+      throw new Error("No response body from Gemini API");
     }
 
-    return new Response(response.body, {
+    // Process the stream in the background
+    (async () => {
+      try {
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Gemini returns a JSON array of objects, but streamed as individual JSON objects
+          // We need to parse them. The format is typically:
+          // [{...},
+          // {...},
+          // ...]
+          // But since we are using streamGenerateContent, it sends chunks.
+
+          // Simple parsing strategy: split by newlines or handle JSON objects
+          // The raw stream from Gemini is a list of JSON objects.
+          // Example:
+          // [
+          //   { "candidates": [...] }
+          // ,
+          //   { "candidates": [...] }
+          // ]
+
+          // We'll try to clean up the buffer to parse valid JSON objects
+          // This is a bit tricky with raw HTTP stream, so let's simplify:
+          // We will look for "text" fields in the response chunks.
+
+          // Actually, let's just forward the text content as SSE
+          // We need to parse the JSON chunks properly.
+
+          // A robust way to parse the stream is to accumulate and find matching brackets
+          // For now, let's assume standard JSON array streaming format
+
+          // Let's use a simpler approach:
+          // The response is a JSON array. We can strip the starting '[' and ending ']' and split by ','
+          // But that's risky if the content contains those chars.
+
+          // Better approach: regex to find "text": "..."
+          // Or just parse complete JSON objects if possible.
+
+          // Let's try to parse complete JSON objects from the buffer
+          let startIndex = 0;
+          let depth = 0;
+          let inString = false;
+
+          for (let i = 0; i < buffer.length; i++) {
+            const char = buffer[i];
+
+            if (char === '"' && buffer[i - 1] !== '\\') {
+              inString = !inString;
+            }
+
+            if (!inString) {
+              if (char === '{') {
+                if (depth === 0) startIndex = i;
+                depth++;
+              } else if (char === '}') {
+                depth--;
+                if (depth === 0) {
+                  // Found a complete JSON object
+                  const jsonStr = buffer.substring(startIndex, i + 1);
+                  try {
+                    const parsed = JSON.parse(jsonStr);
+                    const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                    if (text) {
+                      // Format as SSE for the client (OpenAI style)
+                      // The client expects: data: {"choices":[{"delta":{"content":"..."}}]}
+                      const sseMessage = {
+                        choices: [{
+                          delta: { content: text }
+                        }]
+                      };
+                      await writer.write(encoder.encode(`data: ${JSON.stringify(sseMessage)}\n\n`));
+                    }
+                  } catch (e) {
+                    console.error("Error parsing JSON chunk:", e);
+                  }
+
+                  // Advance buffer
+                  buffer = buffer.substring(i + 1);
+                  i = -1; // Reset loop for new buffer
+                }
+              }
+            }
+          }
+        }
+
+        await writer.write(encoder.encode('data: [DONE]\n\n'));
+        await writer.close();
+      } catch (e) {
+        console.error("Stream processing error:", e);
+        await writer.abort(e);
+      }
+    })();
+
+    return new Response(readable, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
+
   } catch (e) {
-    const errorMessage = e instanceof Error ? e.message : "Erro desconhecido";
-    logStep("ERROR", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    console.error("AIRA chat error:", e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

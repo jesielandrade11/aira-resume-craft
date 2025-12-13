@@ -88,10 +88,10 @@ serve(async (req) => {
 
   try {
     const { pdfBase64, jobDescription } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     if (!pdfBase64) {
@@ -100,91 +100,85 @@ serve(async (req) => {
 
     console.log("Extracting PDF content...");
 
+    // Prepare content for Gemini
+    // Remove data:application/pdf;base64, prefix if present
+    const base64Data = pdfBase64.split(',')[1] || pdfBase64;
+
+    const parts = [
+      {
+        text: jobDescription
+          ? `Extraia as informações deste currículo. Considere que será usado para a seguinte vaga:\n\n${jobDescription}`
+          : "Extraia todas as informações deste currículo em PDF."
+      },
+      {
+        inline_data: {
+          mime_type: "application/pdf",
+          data: base64Data
+        }
+      }
+    ];
+
     // Use Gemini to extract PDF content
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { 
-            role: "system", 
-            content: EXTRACTION_PROMPT 
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: jobDescription 
-                  ? `Extraia as informações deste currículo. Considere que será usado para a seguinte vaga:\n\n${jobDescription}`
-                  : "Extraia todas as informações deste currículo em PDF."
-              },
-              {
-                type: "image_url",
-                image_url: { url: pdfBase64 }
-              }
-            ]
-          }
-        ],
+        contents: [{ role: "user", parts }],
+        system_instruction: {
+          parts: [{ text: EXTRACTION_PROMPT }]
+        },
+        generationConfig: {
+          temperature: 0.1,
+          response_mime_type: "application/json",
+        }
       }),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Gemini API error:", response.status, errorText);
+
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes. Por favor, adicione mais créditos." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error("Erro ao processar PDF");
+
+      throw new Error("Erro ao processar PDF com Gemini");
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!content) {
       throw new Error("Não foi possível extrair o conteúdo do PDF");
     }
 
-    console.log("PDF extraction response:", content.substring(0, 500));
+    console.log("PDF extraction response length:", content.length);
 
     // Try to parse the JSON from the response
     let extractedData;
     try {
-      // Remove markdown code blocks if present
-      let jsonStr = content
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
-      
-      extractedData = JSON.parse(jsonStr);
+      // Gemini with response_mime_type: "application/json" should return valid JSON
+      extractedData = JSON.parse(content);
     } catch (parseError) {
       console.error("Error parsing extracted data:", parseError);
       // Return raw content if parsing fails
-      return new Response(JSON.stringify({ 
+      return new Response(JSON.stringify({
         error: "Não foi possível estruturar os dados extraídos",
-        rawContent: content 
+        rawContent: content
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       success: true,
-      data: extractedData 
+      data: extractedData
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
