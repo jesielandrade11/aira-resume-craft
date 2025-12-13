@@ -185,16 +185,35 @@
   }
 }
 
-/* Print Styles */
+/* Print Styles - Only print the resume */
 @media print {
   @page {
     size: A4;
     margin: 0;
   }
 
+  /* Hide everything by default */
+  body * {
+    visibility: hidden;
+  }
+
   body {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    background: white !important;
+  }
+
+  /* Show only the resume content */
+  .resume-print-area,
+  .resume-print-area * {
+    visibility: visible !important;
+  }
+
+  .resume-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
   }
 
   .resume-page {
@@ -214,7 +233,11 @@
     page-break-inside: avoid;
   }
 
-  .print\\:hidden {
+  /* Hide non-print elements */
+  .print\\:hidden,
+  header,
+  .no-print {
     display: none !important;
+    visibility: hidden !important;
   }
 }

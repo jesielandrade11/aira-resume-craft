@@ -18,7 +18,7 @@ import { getTemplateById } from '@/data/resumeTemplates';
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
-import { User, Download, RotateCcw, Eye, Sparkles, Save, Home, PanelLeftClose, PanelLeft, MessageCircle, FileText, Menu } from 'lucide-react';
+import { User, Download, RotateCcw, Sparkles, Home, PanelLeftClose, PanelLeft, MessageCircle, FileText, Menu } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
@@ -398,13 +398,12 @@ export default function Editor() {
   };
 
   const handleLoadExample = () => {
-    setResume(exampleResume);
-    toast.success('Currículo de exemplo carregado! Edite como quiser.');
+    // Removed - example resume button no longer needed
   };
 
   const handleExportPDF = () => {
+    // Trigger print - CSS handles showing only the resume
     window.print();
-    toast.success('Use Ctrl+P ou Cmd+P para salvar como PDF');
   };
 
   const handleSave = async () => {
@@ -483,11 +482,6 @@ export default function Editor() {
               <span className="hidden md:inline">Início</span>
             </Button>
             
-            <Button variant="outline" size="sm" onClick={handleLoadExample} title="Ver Exemplo" className="gap-1">
-              <Eye className="w-4 h-4" />
-              <span className="hidden md:inline">Exemplo</span>
-            </Button>
-            
             <PhotoUpload
               currentPhoto={resume.personalInfo.photo}
               onPhotoChange={(photo) => handleResumeUpdate({ personalInfo: { ...resume.personalInfo, photo } })}
@@ -498,10 +492,6 @@ export default function Editor() {
                 <User className="w-4 h-4" />
               </Button>
             </UserProfileModal>
-            
-            <Button variant="outline" size="icon" onClick={handleSave} title="Salvar">
-              <Save className="w-4 h-4" />
-            </Button>
             
             <Button variant="outline" size="icon" onClick={handleExportPDF} title="Exportar PDF">
               <Download className="w-4 h-4" />
@@ -514,10 +504,6 @@ export default function Editor() {
 
           {/* Mobile Actions */}
           <div className="flex sm:hidden items-center gap-1">
-            <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleSave} title="Salvar">
-              <Save className="w-4 h-4" />
-            </Button>
-            
             <UserProfileModal profile={userProfile}>
               <Button variant="outline" size="icon" className="h-8 w-8" title="Perfil">
                 <User className="w-4 h-4" />
@@ -541,10 +527,6 @@ export default function Editor() {
                   <Button variant="ghost" className="justify-start gap-2" onClick={() => { navigate('/'); setMobileMenuOpen(false); }}>
                     <Home className="w-4 h-4" />
                     Início
-                  </Button>
-                  <Button variant="ghost" className="justify-start gap-2" onClick={() => { handleLoadExample(); setMobileMenuOpen(false); }}>
-                    <Eye className="w-4 h-4" />
-                    Ver Exemplo
                   </Button>
                   <Button variant="ghost" className="justify-start gap-2" onClick={() => { handleExportPDF(); setMobileMenuOpen(false); }}>
                     <Download className="w-4 h-4" />
@@ -672,7 +654,9 @@ export default function Editor() {
                       width: `${100 / zoom}%`,
                     }}
                   >
-                    <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
+                    <div className="resume-print-area">
+                      <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
+                    </div>
                   </div>
                 </div>
               </section>
@@ -792,7 +776,9 @@ export default function Editor() {
                       width: `${100 / zoom}%`,
                     }}
                   >
-                    <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
+                    <div className="resume-print-area">
+                      <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
+                    </div>
                   </div>
                 </div>
               </section>
