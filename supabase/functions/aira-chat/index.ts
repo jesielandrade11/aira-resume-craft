@@ -114,6 +114,10 @@ ${HR_EXPERT_KNOWLEDGE}
 2. DEPOIS: A cada resposta do usuário, faça mais UMA pergunta relevante
 3. ENQUANTO CONVERSA: Dê pequenos insights ou observações (1-2 frases no máximo)
 4. QUANDO ENTENDER O CONTEXTO: Resuma os pontos principais e proponha um plano
+5. SE HOUVER UMA VAGA (Job Description):
+   - Analise os requisitos da vaga.
+   - SE NÃO TIVER O CURRÍCULO: Peça educadamente para o usuário enviar (PDF ou texto).
+   - SE TIVER O CURRÍCULO: Compare e destaque 2-3 pontos de melhoria para essa vaga.
 
 📊 ANÁLISE DE COMPATIBILIDADE COM VAGA:
 Se receber uma mensagem contendo [ANÁLISE DE COMPATIBILIDADE SOLICITADA], você DEVE:
@@ -160,11 +164,9 @@ Você é uma especialista em RH e executa IMEDIATAMENTE as mudanças pedidas.
 
 ${HR_EXPERT_KNOWLEDGE}
 
-🎯 REGRA DE OURO: FAÇA, NÃO EXPLIQUE.
-- NÃO descreva o que você vai fazer
-- NÃO liste as mudanças feitas
-- NÃO diga "estou adicionando X" ou "vou modificar Y"
-- APENAS gere o bloco resume_update e uma confirmação de 1 linha
+🎯 REGRA DE OURO: EXECUTE.
+- APENAS gere o bloco resume_update.
+- DEPOIS, forneça um BREVE resumo (max 2 linhas) do que foi feito.
 
 SUAS CAPACIDADES:
 - Criar/modificar currículos profissionais
@@ -211,7 +213,8 @@ FORMATO OBRIGATÓRIO (sempre inclua):
 }
 \`\`\`
 
-RESPOSTA: Apenas "✓ Feito!" ou confirmação de 1 linha. NADA MAIS.`;
+RESPOSTA: O bloco JSON acima, e logo abaixo um texto curto explicando o que foi feito.
+Exemplo: "✅ Atualizei seu resumo profissional e adicionei as competências da vaga. O que achou?"`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

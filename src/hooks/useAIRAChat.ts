@@ -1,8 +1,9 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { ChatMessage, ChatAttachment, ResumeData, UserProfile } from '@/types';
 import { toast } from 'sonner';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aira-chat`;
+const STORAGE_KEY = 'aira_chat_history';
 
 export type ChatMode = 'planning' | 'generate';
 
@@ -25,13 +26,53 @@ export function useAIRAChat({
   onProfileUpdate,
   onCreditsUsed,
 }: UseAIRAChatProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Load initial messages from localStorage
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error('Error loading chat history:', e);
+      return [];
+    }
+  });
+
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<ChatMode>('generate');
-  const [isModeLocked, setIsModeLocked] = useState(false); // Lock mode when job description is active
-  
-  // Undo history - stores previous resume states
+  const [isModeLocked, setIsModeLocked] = useState(false);
+
+  // Previous job description to detect changes
+  const prevJobDescriptionRef = useRef(jobDescription);
+
+  // Undo history
   const undoHistory = useRef<ResumeData[]>([]);
+
+  // Persist messages
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
+
+  // Context Awareness: Detect Job Description Changes
+  useEffect(() => {
+    if (jobDescription && jobDescription !== prevJobDescriptionRef.current) {
+      // If job description changed and is not empty
+      const isNew = prevJobDescriptionRef.current === '';
+      prevJobDescriptionRef.current = jobDescription;
+
+      setMode('planning');
+      setIsModeLocked(true);
+
+      // Add system message if it's a new job context
+      if (isNew) {
+        setMessages(prev => [...prev, {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: 'Entendi! Vou usar essa vaga como base. **Por favor, envie seu currículo atual (PDF ou texto)** para eu analisar a compatibilidade.',
+          timestamp: new Date(),
+        }]);
+      }
+    }
+  }, [jobDescription]);
 
   const pushToUndoHistory = useCallback((currentResume: ResumeData) => {
     undoHistory.current = [
@@ -44,7 +85,7 @@ export function useAIRAChat({
 
   const undo = useCallback(() => {
     if (undoHistory.current.length === 0) return;
-    
+
     const previousState = undoHistory.current.pop();
     if (previousState) {
       onResumeUpdate(previousState);
@@ -53,14 +94,13 @@ export function useAIRAChat({
 
   const parseAIResponse = useCallback((content: string, currentResume: ResumeData) => {
     let profileUpdated = false;
-    
+
     // Check for resume updates
     const resumeMatch = content.match(/```resume_update\n([\s\S]*?)\n```/);
     if (resumeMatch) {
       try {
         const updateData = JSON.parse(resumeMatch[1]);
         if (updateData.action === 'update' && updateData.data) {
-          // Save current state to undo history before updating
           pushToUndoHistory(currentResume);
           onResumeUpdate(updateData.data);
         }
@@ -69,12 +109,11 @@ export function useAIRAChat({
       }
     }
 
-    // Check for profile updates (automatic save)
+    // Check for profile updates
     const profileMatch = content.match(/```profile_update\n([\s\S]*?)\n```/);
     if (profileMatch) {
       try {
         const profileData = JSON.parse(profileMatch[1]);
-        // Call profile update with the parsed data directly
         onProfileUpdate(profileData);
         profileUpdated = true;
       } catch (e) {
@@ -82,29 +121,43 @@ export function useAIRAChat({
       }
     }
 
-    // Show toast if profile was updated
     if (profileUpdated) {
-      toast.success('✓ Informações salvas no seu perfil!', {
-        description: 'Usarei esses dados em currículos futuros.'
-      });
+      toast.success('✓ Informações salvas no seu perfil!');
     }
 
-    // Clean the response text (remove JSON blocks)
+    // Clean response - Remove technical blocks
     return content
       .replace(/```resume_update\n[\s\S]*?\n```/g, '')
       .replace(/```profile_update\n[\s\S]*?\n```/g, '')
       .replace(/```profile_update_suggestion\n[\s\S]*?\n```/g, '')
+      // Attempt to hide thinking/log lines if they are not formatted
+      .replace(/^Thinking:.*$/gm, '')
+      .replace(/^Log:.*$/gm, '')
       .trim();
   }, [onResumeUpdate, onProfileUpdate, pushToUndoHistory]);
 
   const sendMessage = useCallback(async (
-    content: string, 
-    attachments?: ChatAttachment[], 
+    content: string,
+    attachments?: ChatAttachment[],
     overrideMode?: ChatMode,
     replyTo?: { id: string; content: string }
   ) => {
-    const currentMode = overrideMode || mode;
-    
+    // Intent Detection
+    let currentMode = overrideMode || mode;
+    const lowerContent = content.toLowerCase();
+
+    if (
+      !overrideMode &&
+      (lowerContent.includes('gerar') ||
+        lowerContent.includes('criar') ||
+        lowerContent.includes('fazer') ||
+        lowerContent.includes('alterar'))
+    ) {
+      currentMode = 'generate';
+      setIsModeLocked(false); // Unlock if auto-detected
+      setMode('generate');
+    }
+
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -117,7 +170,6 @@ export function useAIRAChat({
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
-    // Track credit usage based on mode
     const creditCost = currentMode === 'planning' ? 0.2 : 1;
     onCreditsUsed(creditCost);
 
@@ -125,12 +177,11 @@ export function useAIRAChat({
 
     const upsertAssistant = (chunk: string) => {
       assistantContent += chunk;
-      
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg?.role === 'assistant') {
-          return prev.map((m, i) => 
-            i === prev.length - 1 
+          return prev.map((m, i) =>
+            i === prev.length - 1
               ? { ...m, content: parseAIResponse(assistantContent, resume) }
               : m
           );
@@ -145,13 +196,11 @@ export function useAIRAChat({
     };
 
     try {
-      // Build message content with reply context
       let messageContent = content;
       if (replyTo) {
         messageContent = `[Respondendo à mensagem: "${replyTo.content}"]\n\n${content}`;
       }
 
-      // Prepare messages for API (only last 20 for context window)
       const apiMessages = [...messages, { ...userMessage, content: messageContent }]
         .slice(-20)
         .map(msg => ({
@@ -177,11 +226,10 @@ export function useAIRAChat({
       });
 
       if (!resp.ok) {
-        const errorData = await resp.json().catch(() => ({ error: 'Erro desconhecido' }));
-        throw new Error(errorData.error || `Erro ${resp.status}`);
+        throw new Error('Erro na comunicação com a IA');
       }
 
-      if (!resp.body) throw new Error('Sem resposta do servidor');
+      if (!resp.body) throw new Error('Sem resposta');
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -199,37 +247,15 @@ export function useAIRAChat({
           buffer = buffer.slice(newlineIndex + 1);
 
           if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || line.trim() === '') continue;
-          if (!line.startsWith('data: ')) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) upsertAssistant(content);
-          } catch {
-            buffer = line + '\n' + buffer;
-            break;
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === '[DONE]') break;
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) upsertAssistant(content);
+            } catch { /* ignore */ }
           }
-        }
-      }
-
-      // Final flush
-      if (buffer.trim()) {
-        for (let raw of buffer.split('\n')) {
-          if (!raw) continue;
-          if (raw.endsWith('\r')) raw = raw.slice(0, -1);
-          if (raw.startsWith(':') || raw.trim() === '') continue;
-          if (!raw.startsWith('data: ')) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) upsertAssistant(content);
-          } catch { /* ignore */ }
         }
       }
 
@@ -238,7 +264,7 @@ export function useAIRAChat({
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `Desculpe, ocorreu um erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}. Por favor, tente novamente.`,
+        content: 'Desculpe, tive um problema. Tente novamente.',
         timestamp: new Date(),
       }]);
     } finally {
@@ -248,22 +274,19 @@ export function useAIRAChat({
 
   const clearChat = useCallback(() => {
     setMessages([]);
+    localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  // Function to activate job description mode (planning + lock)
   const activateJobMode = useCallback(() => {
     setMode('planning');
     setIsModeLocked(true);
   }, []);
 
-  // Function to deactivate job mode
   const deactivateJobMode = useCallback(() => {
     setIsModeLocked(false);
   }, []);
 
-  // Override setMode to respect lock
   const setModeWithLock = useCallback((newMode: ChatMode) => {
-    // If locked, only allow change if explicitly unlocking (user clicks generate)
     if (isModeLocked && newMode === 'generate') {
       setIsModeLocked(false);
     }
