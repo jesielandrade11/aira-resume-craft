@@ -1,14 +1,6 @@
 -- Create resumes table for storing user resumes
-CREATE TABLE public.resumes (
-  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id TEXT NOT NULL DEFAULT 'anonymous',
-  title TEXT NOT NULL DEFAULT 'Novo Currículo',
-  data JSONB NOT NULL DEFAULT '{}',
-  job_description TEXT,
-  thumbnail TEXT,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
-);
+-- Migration already applied manually or via previous deploy
+-- Skipping to avoid conflicts
 
 -- Enable Row Level Security
 ALTER TABLE public.resumes ENABLE ROW LEVEL SECURITY;
