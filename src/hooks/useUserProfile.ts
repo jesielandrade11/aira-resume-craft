@@ -15,6 +15,7 @@ interface DBUserProfile {
   location: string | null;
   linkedin: string | null;
   bio: string | null;
+  photo: string | null;
   experiences: unknown;
   skills: unknown;
   education: unknown;
@@ -64,6 +65,7 @@ export function useUserProfile() {
           location: dbProfile.location || '',
           linkedin: dbProfile.linkedin || '',
           bio: dbProfile.bio || '',
+          photo: dbProfile.photo || undefined,
           experiences: Array.isArray(dbProfile.experiences) ? dbProfile.experiences as UserProfile['experiences'] : [],
           skills: Array.isArray(dbProfile.skills) ? dbProfile.skills as string[] : [],
           education: Array.isArray(dbProfile.education) ? dbProfile.education as UserProfile['education'] : [],
@@ -119,6 +121,7 @@ export function useUserProfile() {
         location: updatedProfile.location || null,
         linkedin: updatedProfile.linkedin || null,
         bio: updatedProfile.bio || null,
+        photo: updatedProfile.photo || null,
         experiences: JSON.parse(JSON.stringify(updatedProfile.experiences || [])),
         skills: updatedProfile.skills || [],
         education: JSON.parse(JSON.stringify(updatedProfile.education || [])),

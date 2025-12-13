@@ -225,11 +225,13 @@ export default function Editor() {
           console.error('Error processing payment:', error);
           // Still try to refresh profile
           await fetchProfile();
+        } finally {
+          // Only navigate AFTER payment is processed
+          navigate('/editor', { replace: true });
         }
       };
       
       processPayment();
-      navigate('/editor', { replace: true });
     } else if (payment === 'canceled') {
       toast.error('Pagamento cancelado.');
       navigate('/editor', { replace: true });

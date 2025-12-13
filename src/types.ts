@@ -132,6 +132,7 @@ export interface UserProfile {
   linkedin?: string;
   website?: string;
   bio: string;
+  photo?: string;
   experiences: UserProfileExperience[];
   skills: string[];
   education: UserProfileEducation[];

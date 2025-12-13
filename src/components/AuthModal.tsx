@@ -23,11 +23,10 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login' }: AuthModalProps) {
-  const { signIn, signUp, resetPassword, updatePassword, signInWithGoogle, signInWithLinkedIn } = useAuth();
+  const { signIn, signUp, resetPassword, updatePassword, signInWithGoogle } = useAuth();
   
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isLinkedInLoading, setIsLinkedInLoading] = useState(false);
   const [view, setView] = useState<'auth' | 'reset' | 'new-password'>(
     defaultView === 'reset' ? 'reset' : defaultView === 'new-password' ? 'new-password' : 'auth'
   );
@@ -157,16 +156,6 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
     }
   };
 
-  const handleLinkedInLogin = async () => {
-    setIsLinkedInLoading(true);
-    const { error } = await signInWithLinkedIn();
-    setIsLinkedInLoading(false);
-
-    if (error) {
-      toast.error('Erro ao entrar com LinkedIn: ' + error.message);
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -198,7 +187,7 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
                 variant="outline" 
                 className="w-full gap-2" 
                 onClick={handleGoogleLogin}
-                disabled={isGoogleLoading || isLinkedInLoading}
+                disabled={isGoogleLoading}
               >
                 {isGoogleLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -223,23 +212,6 @@ export function AuthModal({ open, onOpenChange, onSuccess, defaultView = 'login'
                   </svg>
                 )}
                 Continuar com Google
-              </Button>
-
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full gap-2" 
-                onClick={handleLinkedInLogin}
-                disabled={isLinkedInLoading || isGoogleLoading}
-              >
-                {isLinkedInLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                  </svg>
-                )}
-                Continuar com LinkedIn
               </Button>
             </div>
 
