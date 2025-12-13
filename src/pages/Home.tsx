@@ -198,20 +198,20 @@ export default function Home() {
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {isAuthenticated ? (
               <>
-                <Button variant="ghost" size="icon" onClick={() => navigate('/profile')} title="Meu Perfil">
-                  <User className="w-5 h-5" />
+                <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10" onClick={() => navigate('/profile')} title="Meu Perfil">
+                  <User className="w-4 h-4 sm:w-5 sm:h-5" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
-                  <LogOut className="w-5 h-5" />
+                <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10" onClick={handleLogout} title="Sair">
+                  <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
                 </Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" onClick={() => { setAuthModalView('login'); setAuthModalOpen(true); }} className="gap-2">
-                <User className="w-4 h-4" />
-                Entrar
+              <Button variant="outline" size="sm" onClick={() => { setAuthModalView('login'); setAuthModalOpen(true); }} className="gap-1.5 sm:gap-2 text-xs sm:text-sm px-2.5 sm:px-3">
+                <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>Entrar</span>
               </Button>
             )}
           </div>
@@ -309,16 +309,16 @@ export default function Home() {
         </section>
 
         {/* Quick Start Form */}
-        <section className="max-w-3xl mx-auto">
+        <section id="quick-start" className="max-w-3xl mx-auto">
           <Card className="border-2 border-primary/20 shadow-xl shadow-primary/5">
-            <CardContent className="p-6 space-y-5">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
                 <div className="flex items-center gap-2 text-primary">
-                  <Briefcase className="w-5 h-5" />
-                  <span className="font-semibold">Geração Rápida com IA</span>
+                  <Briefcase className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="font-semibold text-sm sm:text-base">Geração Rápida com IA</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
-                  <Coins className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground bg-muted px-2 sm:px-2.5 py-1 rounded-full w-fit">
+                  <Coins className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   <span>0.5 créditos para planejar</span>
                 </div>
               </div>
@@ -434,14 +434,14 @@ export default function Home() {
               
               <Button 
                 onClick={handleGenerateWithAI} 
-                className="w-full h-12 text-base font-semibold gap-2"
+                className="w-full h-11 sm:h-12 text-sm sm:text-base font-semibold gap-1.5 sm:gap-2"
               >
-                <Sparkles className="w-5 h-5" />
-                Gerar Currículo com IA
-                <ArrowRight className="w-5 h-5" />
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>Gerar Currículo com IA</span>
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
               
-              <p className="text-xs text-center text-muted-foreground">
+              <p className="text-[10px] sm:text-xs text-center text-muted-foreground">
                 Planejamento: 0.5 créditos • Cada alteração: 1-3 créditos
               </p>
             </CardContent>
