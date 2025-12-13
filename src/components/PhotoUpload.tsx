@@ -121,15 +121,26 @@ export function PhotoUpload({ currentPhoto, onPhotoChange }: PhotoUploadProps) {
       // Get cropped image
       const croppedImage = await getCroppedImg(imageSrc, croppedAreaPixels);
       
-      // Analyze the cropped photo
+      // Analyze the cropped photo first
       const result = await analyzePhoto(croppedImage);
       setAnalysis(result);
       
-      // Save the photo
+      // Always save the photo regardless of analysis result
       onPhotoChange(croppedImage);
-      toast.success('Foto salva com sucesso!');
-      setIsOpen(false);
-      resetState();
+      
+      if (result?.suitable) {
+        toast.success('Foto salva! Análise: ótima qualidade.');
+      } else if (result) {
+        toast.info('Foto salva! Veja as sugestões de melhoria.');
+      } else {
+        toast.success('Foto salva com sucesso!');
+      }
+      
+      // Keep dialog open briefly to show analysis, then close
+      setTimeout(() => {
+        setIsOpen(false);
+        resetState();
+      }, 2000);
     } catch (error) {
       console.error('Error cropping image:', error);
       toast.error('Erro ao processar imagem');
