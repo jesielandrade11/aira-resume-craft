@@ -1,9 +1,38 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Helper logging function for debugging
+const logStep = (step: string, details?: Record<string, unknown>) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[AIRA-CHAT] ${step}${detailsStr}`);
+};
+
+// Credit costs per mode
+const CREDIT_COSTS: Record<string, number> = {
+  planning: 0,
+  generate: 1,
+};
+
+// Check if user has sufficient credits
+function hasCredits(profile: { credits: number | null; is_unlimited: boolean | null; unlimited_until: string | null }, mode: string): boolean {
+  // Check unlimited subscription
+  if (profile.is_unlimited && profile.unlimited_until) {
+    const unlimitedUntil = new Date(profile.unlimited_until);
+    if (unlimitedUntil > new Date()) {
+      return true;
+    }
+  }
+  
+  // Check credit balance
+  const cost = CREDIT_COSTS[mode] || 0;
+  const credits = profile.credits || 0;
+  return credits >= cost;
+}
 
 // Conhecimento especializado de RH integrado aos prompts
 const HR_EXPERT_KNOWLEDGE = `
@@ -243,15 +272,83 @@ serve(async (req) => {
   }
 
   try {
+    logStep("Function started");
+
+    // Initialize Supabase client with anon key for user auth
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    );
+
+    // Verify authenticated user
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      logStep("ERROR: No authorization header");
+      return new Response(JSON.stringify({ error: "Authentication required" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    
+    if (userError || !userData.user) {
+      logStep("ERROR: Invalid user token", { error: userError?.message });
+      return new Response(JSON.stringify({ error: "Invalid authentication" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const user = userData.user;
+    logStep("User authenticated", { userId: user.id });
+
     const { messages, resume, userProfile, jobDescription, attachments, mode = 'planning' } = await req.json();
+    
+    logStep("Request received", { mode, messagesCount: messages?.length });
+
+    // SERVER-SIDE CREDIT VALIDATION
+    // Use service role to read credits (bypasses RLS for reading)
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .select('credits, is_unlimited, unlimited_until')
+      .eq('user_id', user.id)
+      .single();
+
+    if (profileError) {
+      logStep("ERROR: Failed to fetch profile", { error: profileError.message });
+      return new Response(JSON.stringify({ error: "Failed to verify credits" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check if user has sufficient credits
+    if (!hasCredits(profile, mode)) {
+      logStep("ERROR: Insufficient credits", { 
+        credits: profile.credits, 
+        mode, 
+        cost: CREDIT_COSTS[mode] 
+      });
+      return new Response(JSON.stringify({ error: "Créditos insuficientes. Por favor, adicione mais créditos." }), {
+        status: 402,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    logStep("Credit check passed", { credits: profile.credits, mode });
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
-
-    console.log("Chat mode:", mode);
-    console.log("Job description provided:", !!jobDescription);
 
     // Select system prompt based on mode
     const systemPrompt = mode === 'generate' ? GENERATE_PROMPT : PLANNING_PROMPT;
@@ -283,10 +380,10 @@ serve(async (req) => {
         role: "system", 
         content: systemPrompt + contextMessage 
       },
-      ...messages.map((msg: any) => {
+      ...messages.map((msg: { role: string; content: string; attachments?: Array<{ type: string; base64?: string }> }) => {
         // Handle attachments in messages
         if (msg.attachments && msg.attachments.length > 0) {
-          const content: any[] = [{ type: "text", text: msg.content || "Analise esta imagem" }];
+          const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [{ type: "text", text: msg.content || "Analise esta imagem" }];
           
           for (const attachment of msg.attachments) {
             if (attachment.type === 'image' && attachment.base64) {
@@ -304,7 +401,7 @@ serve(async (req) => {
       })
     ];
 
-    console.log("Sending request to AI Gateway with", apiMessages.length, "messages");
+    logStep("Sending request to AI Gateway", { messageCount: apiMessages.length });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -333,19 +430,36 @@ serve(async (req) => {
         });
       }
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      logStep("ERROR: AI gateway error", { status: response.status, error: errorText });
       return new Response(JSON.stringify({ error: "Erro ao processar sua mensagem. Tente novamente." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // DEDUCT CREDITS after successful AI response (only for generate mode)
+    const creditCost = CREDIT_COSTS[mode] || 0;
+    if (creditCost > 0 && !profile.is_unlimited) {
+      const newCredits = Math.max(0, (profile.credits || 0) - creditCost);
+      const { error: updateError } = await supabaseAdmin
+        .from('user_profiles')
+        .update({ credits: newCredits })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        logStep("Warning: Failed to deduct credits", { error: updateError.message });
+      } else {
+        logStep("Credits deducted", { cost: creditCost, remaining: newCredits });
+      }
+    }
+
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
-    console.error("AIRA chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }), {
+    const errorMessage = e instanceof Error ? e.message : "Erro desconhecido";
+    logStep("ERROR", { message: errorMessage });
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

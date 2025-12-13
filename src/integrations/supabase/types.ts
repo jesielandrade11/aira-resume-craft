@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      processed_payments: {
+        Row: {
+          created_at: string
+          id: string
+          package_id: string
+          processed_at: string
+          stripe_session_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          package_id: string
+          processed_at?: string
+          stripe_session_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          package_id?: string
+          processed_at?: string
+          stripe_session_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       resumes: {
         Row: {
           created_at: string
