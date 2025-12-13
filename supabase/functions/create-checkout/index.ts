@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,7 +33,30 @@ serve(async (req) => {
   }
 
   try {
-    const { packageId, email } = await req.json();
+    // Create Supabase client for user authentication
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    );
+
+    // Verify the user is authenticated
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("Missing authorization header");
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    
+    if (authError || !user) {
+      throw new Error("User not authenticated");
+    }
+
+    if (!user.email) {
+      throw new Error("User email not available");
+    }
+
+    const { packageId } = await req.json();
     
     if (!packageId || !PACKAGES[packageId as keyof typeof PACKAGES]) {
       throw new Error("Invalid package selected");
@@ -44,21 +68,19 @@ serve(async (req) => {
       apiVersion: "2025-08-27.basil",
     });
 
-    // Check if customer exists
+    // Check if customer exists using the authenticated user's email
     let customerId: string | undefined;
-    if (email) {
-      const customers = await stripe.customers.list({ email, limit: 1 });
-      if (customers.data.length > 0) {
-        customerId = customers.data[0].id;
-      }
+    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    if (customers.data.length > 0) {
+      customerId = customers.data[0].id;
     }
 
     const origin = req.headers.get("origin") || "http://localhost:5173";
     
-    // Create checkout session
+    // Create checkout session with authenticated user's email
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      customer_email: customerId ? undefined : email,
+      customer_email: customerId ? undefined : user.email,
       line_items: [
         {
           price: selectedPackage.priceId,
@@ -71,10 +93,11 @@ serve(async (req) => {
       metadata: {
         packageId,
         credits: selectedPackage.credits.toString(),
+        userId: user.id,
       },
     });
 
-    console.log(`Checkout session created: ${session.id} for package ${packageId}`);
+    console.log(`Checkout session created: ${session.id} for package ${packageId} by user ${user.id}`);
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
