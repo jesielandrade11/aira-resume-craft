@@ -90,6 +90,7 @@ export type Database = {
           linkedin: string | null
           location: string | null
           phone: string | null
+          photo: string | null
           preferences: Json | null
           skills: Json | null
           unlimited_until: string | null
@@ -111,6 +112,7 @@ export type Database = {
           linkedin?: string | null
           location?: string | null
           phone?: string | null
+          photo?: string | null
           preferences?: Json | null
           skills?: Json | null
           unlimited_until?: string | null
@@ -132,6 +134,7 @@ export type Database = {
           linkedin?: string | null
           location?: string | null
           phone?: string | null
+          photo?: string | null
           preferences?: Json | null
           skills?: Json | null
           unlimited_until?: string | null
