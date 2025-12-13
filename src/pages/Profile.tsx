@@ -154,46 +154,46 @@ export default function Profile() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-              <ArrowLeft className="w-5 h-5" />
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10" onClick={() => navigate('/')}>
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
             <div>
-              <h1 className="text-xl font-bold">Meu Perfil</h1>
-              <p className="text-sm text-muted-foreground">Gerencie suas informações pessoais</p>
+              <h1 className="text-lg sm:text-xl font-bold">Meu Perfil</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Gerencie suas informações pessoais</p>
             </div>
           </div>
           
-          <Button onClick={handleSave} disabled={isSaving} className="gap-2">
+          <Button onClick={handleSave} disabled={isSaving} className="gap-1.5 sm:gap-2 text-sm sm:text-base px-3 sm:px-4">
             {isSaving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
             ) : (
-              <Save className="w-4 h-4" />
+              <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             )}
-            Salvar
+            <span className="hidden xs:inline">Salvar</span>
           </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
-        <Tabs defaultValue="personal" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="personal" className="gap-2">
-              <User className="w-4 h-4 hidden sm:block" />
-              Pessoal
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-4xl">
+        <Tabs defaultValue="personal" className="space-y-4 sm:space-y-6">
+          <TabsList className="grid w-full grid-cols-4 h-auto p-1">
+            <TabsTrigger value="personal" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-1 sm:px-3 flex-col sm:flex-row">
+              <User className="w-4 h-4" />
+              <span className="hidden sm:inline">Pessoal</span>
             </TabsTrigger>
-            <TabsTrigger value="experience" className="gap-2">
-              <Briefcase className="w-4 h-4 hidden sm:block" />
-              Experiência
+            <TabsTrigger value="experience" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-1 sm:px-3 flex-col sm:flex-row">
+              <Briefcase className="w-4 h-4" />
+              <span className="hidden sm:inline">Experiência</span>
             </TabsTrigger>
-            <TabsTrigger value="education" className="gap-2">
-              <GraduationCap className="w-4 h-4 hidden sm:block" />
-              Formação
+            <TabsTrigger value="education" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-1 sm:px-3 flex-col sm:flex-row">
+              <GraduationCap className="w-4 h-4" />
+              <span className="hidden sm:inline">Formação</span>
             </TabsTrigger>
-            <TabsTrigger value="skills" className="gap-2">
-              <Award className="w-4 h-4 hidden sm:block" />
-              Habilidades
+            <TabsTrigger value="skills" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-1 sm:px-3 flex-col sm:flex-row">
+              <Award className="w-4 h-4" />
+              <span className="hidden sm:inline">Habilidades</span>
             </TabsTrigger>
           </TabsList>
 
