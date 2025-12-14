@@ -107,18 +107,20 @@ export function ChatInterface({
   const handleSend = async (overrideMode?: ChatMode) => {
     if ((!input.trim() && attachments.length === 0) || disabled || isExtractingPdf) return;
 
-    // Check for PDF attachments - try to extract, but if fails, send as regular attachment
+    // Check for PDF attachments - try to extract content
     const pdfAttachment = attachments.find(a => a.name.toLowerCase().endsWith('.pdf'));
 
     if (pdfAttachment && pdfAttachment.base64 && onResumeUpdate) {
       const extractedData = await extractPdfContent(pdfAttachment.base64);
 
       if (extractedData) {
+        // Successfully extracted - update resume and notify
         onResumeUpdate(extractedData);
+        const userName = extractedData.personalInfo?.fullName || 'usuário';
         onSendMessage(
-          input.trim() || `Importei meu currículo do arquivo "${pdfAttachment.name}". Por favor, revise e me diga o que você acha.`,
+          input.trim() || `Extraí as informações do currículo de ${userName} do arquivo "${pdfAttachment.name}". Analise o currículo e me dê sua opinião profissional.`,
           undefined,
-          overrideMode || 'generate',
+          overrideMode || 'planning',
           replyingTo || undefined
         );
         setInput('');
@@ -127,16 +129,9 @@ export function ChatInterface({
         return;
       }
       
-      // If extraction failed, send a message asking user to paste text
-      onSendMessage(
-        input.trim() || `Tentei enviar o arquivo "${pdfAttachment.name}", mas não consegui extrair o conteúdo automaticamente. Você pode copiar e colar o texto do seu currículo aqui?`,
-        undefined,
-        overrideMode || 'generate',
-        replyingTo || undefined
-      );
-      setInput('');
+      // Extraction failed - inform user to try again or paste manually
+      toast.error('Não foi possível ler o PDF. Tente novamente ou cole o texto diretamente.');
       setAttachments([]);
-      setReplyingTo(null);
       return;
     }
 
