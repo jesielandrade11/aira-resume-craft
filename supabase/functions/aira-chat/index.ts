@@ -360,7 +360,9 @@ serve(async (req) => {
         return msg.content.some((c: any) => c.type === 'text' && c.text && c.text.trim().length > 0);
       });
 
-    console.log("Sending request to Claude API with", claudeMessages.length, "messages");
+    // Limit messages to last 10 for performance
+    const limitedMessages = claudeMessages.slice(-10);
+    console.log("Sending request to Claude API with", limitedMessages.length, "messages (limited from", claudeMessages.length, ")");
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -370,10 +372,10 @@ serve(async (req) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-opus-4-1-20250805",
-        max_tokens: 8192,
+        model: "claude-sonnet-4-5-20250514",
+        max_tokens: 4096,
         system: systemPrompt + contextMessage,
-        messages: claudeMessages,
+        messages: limitedMessages,
         stream: true,
       }),
     });

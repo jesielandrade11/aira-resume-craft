@@ -203,82 +203,121 @@ export function useAIRAChat({
       });
     };
 
-    try {
-      let messageContent = content;
-      if (replyTo) {
-        messageContent = `[Respondendo à mensagem: "${replyTo.content}"]\n\n${content}`;
-      }
+    const MAX_RETRIES = 2;
+    let retryCount = 0;
+    let lastError: Error | null = null;
 
-      const apiMessages = [...messages, { ...userMessage, content: messageContent }]
-        .slice(-20)
-        .map(msg => ({
-          role: msg.role,
-          content: msg.content,
-          attachments: msg.attachments,
-        }));
+    while (retryCount <= MAX_RETRIES) {
+      try {
+        let messageContent = content;
+        if (replyTo) {
+          messageContent = `[Respondendo à mensagem: "${replyTo.content}"]\n\n${content}`;
+        }
 
-      const resp = await fetch(CHAT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: apiMessages,
-          resume,
-          userProfile,
-          jobDescription,
-          attachments,
-          mode: currentMode,
-        }),
-      });
+        // Limit to last 10 messages for performance
+        const apiMessages = [...messages, { ...userMessage, content: messageContent }]
+          .slice(-10)
+          .map(msg => ({
+            role: msg.role,
+            content: msg.content,
+            attachments: msg.attachments,
+          }));
 
-      if (!resp.ok) {
-        throw new Error('Erro na comunicação com a IA');
-      }
+        const resp = await fetch(CHAT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: apiMessages,
+            resume,
+            userProfile,
+            jobDescription,
+            attachments,
+            mode: currentMode,
+          }),
+        });
 
-      if (!resp.body) throw new Error('Sem resposta');
+        if (!resp.ok) {
+          throw new Error('Erro na comunicação com a IA');
+        }
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+        if (!resp.body) throw new Error('Sem resposta');
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let streamError = false;
 
-        buffer += decoder.decode(value, { stream: true });
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-        let newlineIndex: number;
-        while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
-          let line = buffer.slice(0, newlineIndex);
-          buffer = buffer.slice(newlineIndex + 1);
+            buffer += decoder.decode(value, { stream: true });
 
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith('data: ')) {
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr === '[DONE]') break;
-            try {
-              const parsed = JSON.parse(jsonStr);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) upsertAssistant(content);
-            } catch { /* ignore */ }
+            let newlineIndex: number;
+            while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+              let line = buffer.slice(0, newlineIndex);
+              buffer = buffer.slice(newlineIndex + 1);
+
+              if (line.endsWith('\r')) line = line.slice(0, -1);
+              if (line.startsWith('data: ')) {
+                const jsonStr = line.slice(6).trim();
+                if (jsonStr === '[DONE]') break;
+                try {
+                  const parsed = JSON.parse(jsonStr);
+                  const deltaContent = parsed.choices?.[0]?.delta?.content;
+                  if (deltaContent) upsertAssistant(deltaContent);
+                } catch { /* ignore */ }
+              }
+            }
           }
+        } catch (streamErr) {
+          console.warn('Stream interrupted:', streamErr);
+          streamError = true;
+        }
+
+        // Check if we got a partial response with resume_update - apply it even if stream failed
+        if (streamError && assistantContent.includes('```resume_update')) {
+          console.log('Applying partial resume_update despite stream error');
+          parseAIResponse(assistantContent, resume);
+        }
+
+        // If stream had error but we got content, don't retry
+        if (streamError && assistantContent.length < 50) {
+          throw new Error('Stream interrompido');
+        }
+
+        // Success - break out of retry loop
+        break;
+
+      } catch (error) {
+        lastError = error as Error;
+        retryCount++;
+        console.error(`Chat error (attempt ${retryCount}/${MAX_RETRIES + 1}):`, error);
+
+        if (retryCount <= MAX_RETRIES) {
+          setThinkingStatus(`Reconectando... (tentativa ${retryCount + 1})`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          assistantContent = ''; // Reset for retry
         }
       }
+    }
 
-    } catch (error) {
-      console.error('Chat error:', error);
+    // All retries failed
+    if (retryCount > MAX_RETRIES && lastError) {
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: 'Desculpe, tive um problema. Tente novamente.',
+        content: 'Desculpe, tive um problema de conexão. Tente novamente.',
         timestamp: new Date(),
       }]);
-    } finally {
-      setIsLoading(false);
-      setThinkingStatus(null); // Clear status when done
     }
+
+    setIsLoading(false);
+    setThinkingStatus(null);
   }, [messages, resume, userProfile, jobDescription, mode, onCreditsUsed, parseAIResponse]);
 
   const clearChat = useCallback(() => {
