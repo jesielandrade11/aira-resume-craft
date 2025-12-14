@@ -288,10 +288,24 @@ export function ChatInterface({
           // Parse action buttons
           let displayContent = message.content;
           let actionButton: ActionButton | null = null;
+          let hasResumeUpdate = false;
 
+          // Check if there was a resume update and replace with friendly message
+          if (displayContent.includes('```resume_update')) {
+            hasResumeUpdate = true;
+          }
+
+          // Remove all code blocks from display
           displayContent = displayContent.replace(/```resume_update[\s\S]*?```/g, '').trim();
           displayContent = displayContent.replace(/```profile_update[\s\S]*?```/g, '').trim();
-          displayContent = displayContent.replace(/\[\[STATUS:.*?\]\]/g, '').trim(); // Ensure tags are hidden if accidentally persisted
+          displayContent = displayContent.replace(/```json[\s\S]*?```/g, '').trim();
+          displayContent = displayContent.replace(/```[\s\S]*?```/g, '').trim();
+          displayContent = displayContent.replace(/\[\[STATUS:.*?\]\]/g, '').trim();
+
+          // If the message only had code and nothing else, show a friendly summary
+          if (hasResumeUpdate && !displayContent) {
+            displayContent = "✅ Currículo atualizado! Se algo não ficou como esperado, você pode editar manualmente clicando diretamente no campo que deseja alterar.";
+          }
 
           let profileSuggestion: ProfileUpdateSuggestion | null = null;
 
