@@ -23,6 +23,75 @@ import { User, Download, RotateCcw, Sparkles, Home, Save, MessageCircle, FileTex
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
+import { UserProfile } from '@/types';
+
+// Helper to sync resume data to user profile (smart merge)
+const syncResumeToProfile = (resumeData: ResumeData, currentProfile: UserProfile, updateProfileFn: (u: Partial<UserProfile>) => void) => {
+  if (!currentProfile || !currentProfile.id) return;
+
+  const updates: Partial<UserProfile> = {};
+  let hasUpdates = false;
+
+  // 1. Personal Info (only if missing in profile)
+  if (!currentProfile.fullName && resumeData.personalInfo.fullName) { updates.fullName = resumeData.personalInfo.fullName; hasUpdates = true; }
+  if (!currentProfile.email && resumeData.personalInfo.email) { updates.email = resumeData.personalInfo.email; hasUpdates = true; }
+  if (!currentProfile.phone && resumeData.personalInfo.phone) { updates.phone = resumeData.personalInfo.phone; hasUpdates = true; }
+  if (!currentProfile.location && resumeData.personalInfo.location) { updates.location = resumeData.personalInfo.location; hasUpdates = true; }
+  if (!currentProfile.linkedin && resumeData.personalInfo.linkedin) { updates.linkedin = resumeData.personalInfo.linkedin; hasUpdates = true; }
+  if (!currentProfile.bio && resumeData.personalInfo.summary) { updates.bio = resumeData.personalInfo.summary; hasUpdates = true; }
+
+  // 2. Experiences
+  const existingExps = currentProfile.experiences || [];
+  const newExps = resumeData.experience || [];
+  const addedExps = newExps.filter(rExp =>
+    !existingExps.some(pExp => pExp.company === rExp.company && pExp.position === rExp.position)
+  ).map(rExp => ({
+    company: rExp.company,
+    position: rExp.position,
+    startDate: rExp.startDate,
+    endDate: rExp.endDate,
+    current: rExp.endDate.toLowerCase().includes('atual') || rExp.endDate.toLowerCase().includes('present'),
+    description: rExp.description
+  }));
+
+  if (addedExps.length > 0) {
+    updates.experiences = [...existingExps, ...addedExps];
+    hasUpdates = true;
+  }
+
+  // 3. Education
+  const existingEdu = currentProfile.education || [];
+  const newEdu = resumeData.education || [];
+  const addedEdu = newEdu.filter(rEdu =>
+    !existingEdu.some(pEdu => pEdu.institution === rEdu.institution && pEdu.degree === rEdu.degree)
+  ).map(rEdu => ({
+    institution: rEdu.institution,
+    degree: rEdu.degree,
+    field: rEdu.field,
+    startDate: rEdu.startDate,
+    endDate: rEdu.endDate
+  }));
+
+  if (addedEdu.length > 0) {
+    updates.education = [...existingEdu, ...addedEdu];
+    hasUpdates = true;
+  }
+
+  // 4. Skills
+  const existingSkills = currentProfile.skills || [];
+  const newSkills = (resumeData.skills || []).map(s => s.name);
+  const addedSkills = newSkills.filter(s => !existingSkills.some(es => es.toLowerCase() === s.toLowerCase()));
+
+  if (addedSkills.length > 0) {
+    updates.skills = [...existingSkills, ...addedSkills];
+    hasUpdates = true;
+  }
+
+  if (hasUpdates) {
+    console.log("Syncing resume data to profile:", Object.keys(updates));
+    updateProfileFn(updates);
+  }
+};
 
 const STORAGE_KEYS = {
   resume: 'aira_resume',
@@ -170,6 +239,11 @@ export default function Editor() {
         if (id) {
           if (!currentResumeId) setCurrentResumeId(id);
           setLastSaved(new Date());
+
+          // Sync to profile
+          if (userProfile) {
+            syncResumeToProfile(debouncedResume, userProfile, handleProfileUpdate);
+          }
         }
       } catch (e) {
         console.error("Auto-save failed", e);
@@ -181,7 +255,7 @@ export default function Editor() {
     if (debouncedResume !== emptyResume) {
       autoSave();
     }
-  }, [debouncedResume, jobDescription, saveResume, currentResumeId, resumeTitle]);
+  }, [debouncedResume, jobDescription, saveResume, currentResumeId, resumeTitle, userProfile, handleProfileUpdate]);
 
   // LocalStorage Backup
   useEffect(() => {
