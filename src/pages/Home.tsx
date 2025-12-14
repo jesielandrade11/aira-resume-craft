@@ -12,6 +12,7 @@ import { resumeTemplates } from '@/data/resumeTemplates';
 import { useResumes } from '@/hooks/useResumes';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthModal } from '@/components/AuthModal';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -30,6 +31,9 @@ export default function Home() {
   const [attachPopoverOpen, setAttachPopoverOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalView, setAuthModalView] = useState<'login' | 'reset' | 'new-password'>('login');
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [resumeToDelete, setResumeToDelete] = useState<string | null>(null);
+  const templatesRef = useRef<HTMLElement>(null);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   // Check for password reset flow
@@ -139,18 +143,28 @@ export default function Home() {
   };
 
   const handleTemplateClick = (templateId: string) => {
-    requireAuth(() => navigateToEditor(`/editor?new=true&template=${templateId}`));
+    requireAuth(() => {
+      // Auto-save will be handled by Editor when template is loaded
+      navigateToEditor(`/editor?new=true&template=${templateId}`);
+    });
   };
 
   const handleOpenResume = (id: string) => {
     requireAuth(() => navigateToEditor(`/editor?id=${id}`));
   };
 
-  const handleDeleteResume = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteResume = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm('Tem certeza que deseja excluir este currículo?')) {
-      await deleteResume(id);
+    setResumeToDelete(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteResume = async () => {
+    if (resumeToDelete) {
+      await deleteResume(resumeToDelete);
+      setResumeToDelete(null);
     }
+    setDeleteConfirmOpen(false);
   };
 
   const handleDuplicateResume = async (e: React.MouseEvent, id: string) => {
@@ -298,7 +312,7 @@ export default function Home() {
                   <Button 
                     size="lg"
                     className="px-8 py-6 text-base font-semibold bg-foreground text-background hover:bg-foreground/90 transition-all"
-                    onClick={() => document.getElementById('templates')?.scrollIntoView({ behavior: 'smooth' })}
+                    onClick={() => templatesRef.current?.scrollIntoView({ behavior: 'smooth' })}
                   >
                     Ver Templates
                   </Button>
@@ -482,7 +496,7 @@ export default function Home() {
         )}
 
         {/* Templates Gallery */}
-        <section className="space-y-4 sm:space-y-6">
+        <section ref={templatesRef} id="templates" className="space-y-4 sm:space-y-6">
           <div className="text-center">
             <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-2">
               {resumes && resumes.length > 0 ? 'Ou comece com um template' : 'Comece com um template'}
@@ -525,6 +539,18 @@ export default function Home() {
           <p>© 2024 AIRA - Artificial Intelligence Resume Architect</p>
         </div>
       </footer>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Excluir currículo"
+        description="Tem certeza que deseja excluir este currículo? Esta ação não pode ser desfeita."
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        onConfirm={confirmDeleteResume}
+        variant="destructive"
+      />
     </div>
   );
 }

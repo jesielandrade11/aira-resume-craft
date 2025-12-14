@@ -10,6 +10,7 @@ import { ZoomControls } from '@/components/ZoomControls';
 import { BuyCreditsModal } from '@/components/BuyCreditsModal';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { EditableTitle } from '@/components/EditableTitle';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useAIRAChat } from '@/hooks/useAIRAChat';
 import { useResumes } from '@/hooks/useResumes';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -20,7 +21,6 @@ import { User, Download, RotateCcw, Sparkles, Home, Save, MessageCircle, FileTex
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
-import { useDebounce } from '@/hooks/use-debounce'; // Assuming this exists or I'll implement a simple one
 
 const STORAGE_KEYS = {
   resume: 'aira_resume',
@@ -85,6 +85,7 @@ export default function Editor() {
 
   const [zoom, setZoom] = useState(1);
   const [showBuyCreditsModal, setShowBuyCreditsModal] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -300,14 +301,17 @@ export default function Editor() {
   }, [initialPrompt, initialJob, isPlanning, forceGenerateMode, hasAutoSentPrompt, isLoading, sendMessage]);
 
   const handleReset = () => {
-    if (confirm('Tem certeza que deseja limpar tudo e começar do zero?')) {
-      setResume(emptyResume);
-      setJobDescription('');
-      setCurrentResumeId(null);
-      clearChat();
-      navigate('/editor?new=true');
-      toast.success('Tudo limpo! Vamos recomeçar.');
-    }
+    setShowResetConfirm(true);
+  };
+
+  const confirmReset = () => {
+    setResume(emptyResume);
+    setJobDescription('');
+    setCurrentResumeId(null);
+    clearChat();
+    navigate('/editor?new=true');
+    toast.success('Tudo limpo! Vamos recomeçar.');
+    setShowResetConfirm(false);
   };
 
   const handleExportPDF = () => {
@@ -486,6 +490,17 @@ export default function Editor() {
       )}
 
       <BuyCreditsModal open={showBuyCreditsModal} onOpenChange={setShowBuyCreditsModal} />
+      
+      <ConfirmDialog
+        open={showResetConfirm}
+        onOpenChange={setShowResetConfirm}
+        title="Recomeçar do zero"
+        description="Tem certeza que deseja limpar tudo e começar do zero? Esta ação não pode ser desfeita."
+        confirmText="Limpar tudo"
+        cancelText="Cancelar"
+        onConfirm={confirmReset}
+        variant="destructive"
+      />
     </div>
   );
 }

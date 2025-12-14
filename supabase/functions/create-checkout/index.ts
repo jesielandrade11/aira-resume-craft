@@ -7,20 +7,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Credit packages configuration - Updated pricing
+// Credit packages configuration - Real Stripe price IDs
 const PACKAGES = {
   credits_30: {
-    priceId: "price_30_credits", // TODO: Replace with real Stripe price ID
+    priceId: "price_1Sdy8VACXnuYbfVrufn3Wli5",
     credits: 30,
     mode: "payment" as const,
   },
   credits_100: {
-    priceId: "price_100_credits", // TODO: Replace with real Stripe price ID
+    priceId: "price_1SdyAnACXnuYbfVrid6ulAOW",
     credits: 100,
     mode: "payment" as const,
   },
   credits_300: {
-    priceId: "price_300_credits", // TODO: Replace with real Stripe price ID
+    priceId: "price_1SdyBPACXnuYbfVrhGwjmlL0",
     credits: 300,
     mode: "payment" as const,
   },
