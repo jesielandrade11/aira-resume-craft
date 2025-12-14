@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2, Plus, X, User, Phone, MapPin, Linkedin, Briefcase, GraduationCap, Languages, Award } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Plus, X, User, Phone, MapPin, Linkedin, Briefcase, GraduationCap, Languages, Award, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,9 +14,9 @@ import { UserProfileExperience, UserProfileEducation, UserProfileLanguage } from
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { profile, isLoading, isSaving, updateProfile } = useUserProfile();
-  
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -25,7 +25,7 @@ export default function Profile() {
     linkedin: '',
     bio: '',
   });
-  
+
   const [experiences, setExperiences] = useState<UserProfileExperience[]>([]);
   const [education, setEducation] = useState<UserProfileEducation[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
@@ -164,7 +164,7 @@ export default function Profile() {
               <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Gerencie suas informações pessoais</p>
             </div>
           </div>
-          
+
           <Button onClick={handleSave} disabled={isSaving} className="gap-1.5 sm:gap-2 text-sm sm:text-base px-3 sm:px-4">
             {isSaving ? (
               <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
@@ -172,6 +172,9 @@ export default function Profile() {
               <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             )}
             <span className="hidden xs:inline">Salvar</span>
+          </Button>
+          <Button variant="ghost" size="icon" onClick={async () => { await signOut(); navigate('/'); }} title="Sair">
+            <LogOut className="w-4 h-4" />
           </Button>
         </div>
       </header>
@@ -221,7 +224,7 @@ export default function Profile() {
                       />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
@@ -232,7 +235,7 @@ export default function Profile() {
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="phone">Telefone</Label>
                     <div className="relative">
@@ -246,7 +249,7 @@ export default function Profile() {
                       />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="location">Localização</Label>
                     <div className="relative">
@@ -260,7 +263,7 @@ export default function Profile() {
                       />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="linkedin">LinkedIn</Label>
                     <div className="relative">
@@ -274,7 +277,7 @@ export default function Profile() {
                       />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="bio">Resumo profissional</Label>
                     <Textarea
@@ -321,7 +324,7 @@ export default function Profile() {
                       >
                         <X className="w-4 h-4" />
                       </Button>
-                      
+
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                           <Label>Empresa</Label>
@@ -404,7 +407,7 @@ export default function Profile() {
                       >
                         <X className="w-4 h-4" />
                       </Button>
-                      
+
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                           <Label>Instituição</Label>
@@ -474,7 +477,7 @@ export default function Profile() {
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
-                
+
                 <div className="flex flex-wrap gap-2">
                   {skills.map((skill) => (
                     <Badge key={skill} variant="secondary" className="gap-1 pr-1">
