@@ -12,6 +12,7 @@ import { PhotoUpload } from '@/components/PhotoUpload';
 import { EditableTitle } from '@/components/EditableTitle';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useAIRAChat } from '@/hooks/useAIRAChat';
+import { useResumeChat } from '@/hooks/useResumeChat';
 import { useResumes } from '@/hooks/useResumes';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -245,6 +246,24 @@ export default function Editor() {
   }, [useCredits, hasUnlimited, userProfile.credits]);
 
   const [savedJobDescription, setSavedJobDescription] = useState(jobDescription);
+  
+  // Resume chat management
+  const { 
+    messages: chatMessages, 
+    setMessages: setChatMessages, 
+    saveChat, 
+    clearChat: clearResumeChat,
+    hasLoaded: chatLoaded 
+  } = useResumeChat({ resumeId: currentResumeId });
+
+  // Handle messages change and save to DB
+  const handleMessagesChange = useCallback((newMessages: typeof chatMessages) => {
+    setChatMessages(newMessages);
+    if (currentResumeId) {
+      saveChat(newMessages);
+    }
+  }, [setChatMessages, saveChat, currentResumeId]);
+
   const { messages, isLoading, thinkingStatus, mode, setMode, sendMessage, clearChat, canUndo, undo, isModeLocked, activateJobMode, deactivateJobMode } = useAIRAChat({
     resume,
     userProfile,
@@ -252,6 +271,8 @@ export default function Editor() {
     onResumeUpdate: handleResumeUpdate,
     onProfileUpdate: handleProfileUpdate,
     onCreditsUsed: handleCreditsUsed,
+    externalMessages: chatMessages,
+    onMessagesChange: handleMessagesChange,
   });
 
   const handleJobDescriptionSave = useCallback((value: string) => {
@@ -314,6 +335,7 @@ export default function Editor() {
     setJobDescription('');
     setCurrentResumeId(null);
     clearChat();
+    clearResumeChat();
     navigate('/editor?new=true');
     toast.success('Tudo limpo! Vamos recomeçar.');
     setShowResetConfirm(false);
