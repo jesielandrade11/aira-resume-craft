@@ -32,71 +32,86 @@ serve(async (req) => {
 
   try {
     const { imageBase64 } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     if (!imageBase64) {
       throw new Error("Imagem não fornecida");
     }
 
-    console.log("Analyzing photo...");
+    console.log("Analyzing photo with Lovable AI Gateway...");
 
-    // Prepare content for Gemini
-    // Remove data:image/xxx;base64, prefix if present
-    const base64Data = imageBase64.split(',')[1] || imageBase64;
-    const mimeType = imageBase64.split(';')[0].split(':')[1] || 'image/jpeg';
+    // Prepare image URL (keep data URI format)
+    const imageUrl = imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
 
-    // Use Gemini 2.5 Flash
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    // Use Lovable AI Gateway with Gemini 2.5 Flash (multimodal)
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        contents: [
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: SYSTEM_PROMPT
+          },
           {
             role: "user",
-            parts: [
-              { text: "Analise esta foto para uso em currículo profissional:" },
+            content: [
               {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Data
+                type: "text",
+                text: "Analise esta foto para uso em currículo profissional:"
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageUrl
                 }
               }
             ]
           }
         ],
-        system_instruction: {
-          parts: [{ text: SYSTEM_PROMPT }]
-        },
-        generationConfig: {
-          temperature: 0.4,
-          response_mime_type: "application/json",
-        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gemini API error:", response.status, errorText);
-      throw new Error("Erro ao analisar imagem com Gemini");
+      console.error("Lovable AI Gateway error:", response.status, errorText);
+      
+      if (response.status === 429) {
+        throw new Error("Limite de requisições excedido. Tente novamente em alguns minutos.");
+      }
+      if (response.status === 402) {
+        throw new Error("Créditos de IA insuficientes.");
+      }
+      throw new Error("Erro ao analisar imagem");
     }
 
     const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const content = data.choices?.[0]?.message?.content;
+
+    console.log("AI Response:", content);
 
     if (!content) {
       throw new Error("Não foi possível analisar a imagem");
     }
 
-    // Parse the JSON response
+    // Parse the JSON response - extract JSON from response
     let analysis;
     try {
-      analysis = JSON.parse(content);
+      // Try to extract JSON from the response (might be wrapped in markdown)
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        analysis = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error("No JSON found in response");
+      }
     } catch (e) {
       console.error("Error parsing analysis:", e, content);
       analysis = {
