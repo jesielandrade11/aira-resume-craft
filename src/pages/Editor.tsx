@@ -466,10 +466,10 @@ export default function Editor() {
               onWheel={handleWheel}
             >
               <div
-                className="origin-top transition-transform duration-150 print:transform-none shadow-2xl print:shadow-none bg-white min-h-[297mm]"
+                className="resume-print-area origin-top transition-transform duration-150 print:transform-none shadow-2xl print:shadow-none bg-white min-h-[297mm]"
                 style={{
                   transform: `scale(${zoom})`,
-                  width: '210mm', // A4 width
+                  width: '210mm',
                   height: 'max-content'
                 }}
               >
@@ -490,7 +490,7 @@ export default function Editor() {
           {mobileView === 'preview' && (
             <div className="flex-1 overflow-auto p-2 bg-muted/30">
               <ZoomControls zoom={zoom} onZoomChange={setZoom} />
-              <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', width: '210mm' }}>
+              <div className="resume-print-area" style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', width: '210mm' }}>
                 <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
               </div>
             </div>
