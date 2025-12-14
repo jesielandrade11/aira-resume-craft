@@ -3,7 +3,6 @@ import { ChatMessage, ChatAttachment, ResumeData, UserProfile } from '@/types';
 import { toast } from 'sonner';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aira-chat`;
-const STORAGE_KEY = 'aira_chat_history';
 
 export type ChatMode = 'planning' | 'generate';
 
@@ -14,6 +13,8 @@ interface UseAIRAChatProps {
   onResumeUpdate: (data: Partial<ResumeData>) => void;
   onProfileUpdate: (data: Partial<UserProfile>) => void;
   onCreditsUsed: (amount: number) => void;
+  externalMessages?: ChatMessage[];
+  onMessagesChange?: (messages: ChatMessage[]) => void;
 }
 
 const MAX_UNDO_HISTORY = 10;
@@ -25,16 +26,21 @@ export function useAIRAChat({
   onResumeUpdate,
   onProfileUpdate,
   onCreditsUsed,
+  externalMessages,
+  onMessagesChange,
 }: UseAIRAChatProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error('Error loading chat history:', e);
-      return [];
+  // Use external messages if provided, otherwise use local state
+  const [internalMessages, setInternalMessages] = useState<ChatMessage[]>([]);
+  const messages = externalMessages ?? internalMessages;
+  
+  const setMessages = useCallback((updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
+    if (onMessagesChange) {
+      const newMessages = typeof updater === 'function' ? updater(messages) : updater;
+      onMessagesChange(newMessages);
+    } else {
+      setInternalMessages(updater);
     }
-  });
+  }, [messages, onMessagesChange]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [thinkingStatus, setThinkingStatus] = useState<string | null>(null);
@@ -49,10 +55,6 @@ export function useAIRAChat({
   useEffect(() => {
     resumeRef.current = resume;
   }, [resume]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-  }, [messages]);
 
   useEffect(() => {
     if (jobDescription && jobDescription !== prevJobDescriptionRef.current) {
@@ -431,8 +433,7 @@ export function useAIRAChat({
 
   const clearChat = useCallback(() => {
     setMessages([]);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
+  }, [setMessages]);
 
   const activateJobMode = useCallback(() => {
     setMode('planning');
