@@ -181,7 +181,7 @@ export default function Editor() {
     if (debouncedResume !== emptyResume) {
       autoSave();
     }
-  }, [debouncedResume, jobDescription, saveResume]);
+  }, [debouncedResume, jobDescription, saveResume, currentResumeId, resumeTitle]);
 
   // LocalStorage Backup
   useEffect(() => {
@@ -256,14 +256,14 @@ export default function Editor() {
   }, [useCredits, hasUnlimited, userProfile.credits]);
 
   const [savedJobDescription, setSavedJobDescription] = useState(jobDescription);
-  
+
   // Resume chat management
-  const { 
-    messages: chatMessages, 
-    setMessages: setChatMessages, 
-    saveChat, 
+  const {
+    messages: chatMessages,
+    setMessages: setChatMessages,
+    saveChat,
     clearChat: clearResumeChat,
-    hasLoaded: chatLoaded 
+    hasLoaded: chatLoaded
   } = useResumeChat({ resumeId: currentResumeId });
 
   // Handle messages change and save to DB
@@ -360,7 +360,7 @@ export default function Editor() {
     }
 
     toast.loading('Gerando PDF...', { id: 'pdf-generation' });
-    
+
     const success = await downloadPdf(
       element,
       `${resumeTitle.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
@@ -458,9 +458,9 @@ export default function Editor() {
                   <UserProfileModal profile={userProfile}>
                     <Button variant="outline" className="justify-start gap-2"><User className="w-4 h-4" /> Meu Perfil</Button>
                   </UserProfileModal>
-                  <PhotoUpload 
-                    currentPhoto={resume.personalInfo.photo} 
-                    onPhotoChange={(photo) => handleResumeUpdate({ personalInfo: { ...resume.personalInfo, photo } })} 
+                  <PhotoUpload
+                    currentPhoto={resume.personalInfo.photo}
+                    onPhotoChange={(photo) => handleResumeUpdate({ personalInfo: { ...resume.personalInfo, photo } })}
                   />
                   <Button onClick={handleManualSave} className="justify-start gap-2"><Save className="w-4 h-4" /> Salvar Currículo</Button>
                   <Button onClick={handleExportPDF} variant="outline" className="justify-start gap-2"><Download className="w-4 h-4" /> Baixar PDF</Button>
@@ -557,7 +557,7 @@ export default function Editor() {
       )}
 
       <BuyCreditsModal open={showBuyCreditsModal} onOpenChange={setShowBuyCreditsModal} />
-      
+
       <ConfirmDialog
         open={showResetConfirm}
         onOpenChange={setShowResetConfirm}
