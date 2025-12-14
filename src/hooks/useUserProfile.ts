@@ -163,7 +163,7 @@ export function useUserProfile() {
     // Check if enough credits
     if (profile.credits < amount) return false;
     
-    const newCredits = profile.credits - amount;
+    const newCredits = Math.floor(profile.credits - amount);
     
     // Optimistic update
     setProfile(prev => ({ ...prev, credits: newCredits }));
