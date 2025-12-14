@@ -7,11 +7,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Credit packages configuration (must match client/create-checkout)
-const PACKAGES = {
-  credits_10: { credits: 10 },
-  credits_50: { credits: 50 },
-  unlimited: { credits: -1 }, // Special flag for unlimited
+// Credit packages configuration (must match create-checkout)
+const PACKAGES: Record<string, { credits: number }> = {
+  credits_30: { credits: 30 },
+  credits_100: { credits: 100 },
+  credits_300: { credits: 300 },
 };
 
 serve(async (req) => {
@@ -43,14 +43,14 @@ serve(async (req) => {
     }
 
     const packageId = session.metadata?.packageId;
-    const userId = session.client_reference_id || (await getUserFromSession(req, supabaseClient));
+    const userId = session.metadata?.userId || (await getUserFromSession(req, supabaseClient));
 
     if (!packageId || !PACKAGES[packageId]) {
       throw new Error("Invalid package");
     }
 
     if (!userId) {
-      throw new Error("User not found via auth context or client_reference_id");
+      throw new Error("User not found via auth context or metadata");
     }
 
     // 2. Check if already processed
@@ -79,19 +79,10 @@ serve(async (req) => {
 
     if (profileError) throw profileError;
 
-    let updates = {};
-    if (pkg.credits === -1) {
-      // Handle unlimited subscription
-      updates = {
-        is_unlimited: true,
-        unlimited_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
-      };
-    } else {
-      // Add credits
-      updates = {
-        credits: (profile.credits || 0) + pkg.credits
-      };
-    }
+    // Add credits
+    const updates = {
+      credits: (profile.credits || 0) + pkg.credits
+    };
 
     // Update profile
     const { error: updateError } = await supabaseClient
@@ -108,14 +99,17 @@ serve(async (req) => {
       package_id: packageId,
     });
 
+    console.log(`Payment processed: ${pkg.credits} credits added to user ${userId}`);
+
     return new Response(JSON.stringify({ success: true, creditsAdded: pkg.credits }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
 
   } catch (error) {
-    console.error("Payment processing error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Payment processing error:", errorMessage);
+    return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
     });
