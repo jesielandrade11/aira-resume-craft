@@ -16,6 +16,7 @@ import { useResumeChat } from '@/hooks/useResumeChat';
 import { useResumes } from '@/hooks/useResumes';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { usePdfGenerator } from '@/hooks/usePdfGenerator';
 import { getTemplateById } from '@/data/resumeTemplates';
 import { Button } from '@/components/ui/button';
 import { User, Download, RotateCcw, Sparkles, Home, Save, MessageCircle, FileText, Menu, Check } from 'lucide-react';
@@ -89,9 +90,18 @@ export default function Editor() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const resumePreviewRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const [mobileView, setMobileView] = useState<'chat' | 'preview'>('chat');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // PDF generation with cache
+  const { isGenerating: isGeneratingPdf, downloadPdf, hasCachedPdf, clearCache: clearPdfCache } = usePdfGenerator();
+
+  // Create a hash of the resume to detect changes
+  const getResumeHash = useCallback(() => {
+    return JSON.stringify(resume);
+  }, [resume]);
 
   // Load resume from DB
   useEffect(() => {
@@ -336,14 +346,33 @@ export default function Editor() {
     setCurrentResumeId(null);
     clearChat();
     clearResumeChat();
+    clearPdfCache();
     navigate('/editor?new=true');
     toast.success('Tudo limpo! Vamos recomeçar.');
     setShowResetConfirm(false);
   };
 
-  const handleExportPDF = () => {
-    window.print();
-  };
+  const handleExportPDF = useCallback(async () => {
+    const element = resumePreviewRef.current;
+    if (!element) {
+      toast.error('Não foi possível gerar o PDF');
+      return;
+    }
+
+    toast.loading('Gerando PDF...', { id: 'pdf-generation' });
+    
+    const success = await downloadPdf(
+      element,
+      `${resumeTitle.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+      getResumeHash()
+    );
+
+    if (success) {
+      toast.success('PDF baixado com sucesso!', { id: 'pdf-generation' });
+    } else {
+      toast.error('Erro ao gerar PDF', { id: 'pdf-generation' });
+    }
+  }, [downloadPdf, resumeTitle, getResumeHash]);
 
   const handleManualSave = async () => {
     setIsSaving(true);
@@ -490,6 +519,7 @@ export default function Editor() {
               onWheel={handleWheel}
             >
               <div
+                ref={resumePreviewRef}
                 className="resume-print-area origin-top transition-transform duration-150 print:transform-none shadow-2xl print:shadow-none bg-white min-h-[297mm]"
                 style={{
                   transform: `scale(${zoom})`,
@@ -514,7 +544,7 @@ export default function Editor() {
           {mobileView === 'preview' && (
             <div className="flex-1 overflow-auto p-2 bg-muted/30">
               <ZoomControls zoom={zoom} onZoomChange={setZoom} />
-              <div className="resume-print-area" style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', width: '210mm' }}>
+              <div ref={resumePreviewRef} className="resume-print-area bg-white" style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', width: '210mm' }}>
                 <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
               </div>
             </div>
