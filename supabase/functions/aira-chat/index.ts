@@ -309,15 +309,17 @@ serve(async (req) => {
     const claudeMessages = messages
       .filter((msg: any) => {
         // Filter out messages with empty or whitespace-only content
-        const hasTextContent = msg.content && msg.content.trim().length > 0;
+        const textContent = typeof msg.content === 'string' ? msg.content.trim() : '';
+        const hasTextContent = textContent.length > 0;
         const hasAttachments = msg.attachments && msg.attachments.length > 0;
         return hasTextContent || hasAttachments;
       })
       .map((msg: any) => {
         const content: any[] = [];
+        const textContent = typeof msg.content === 'string' ? msg.content.trim() : '';
 
-        if (msg.content && msg.content.trim()) {
-          content.push({ type: "text", text: msg.content });
+        if (textContent.length > 0) {
+          content.push({ type: "text", text: textContent });
         }
 
         if (msg.attachments && msg.attachments.length > 0) {
@@ -343,15 +345,19 @@ serve(async (req) => {
           }
         }
 
-        // Ensure content array is not empty
+        // Ensure content array is not empty - use meaningful placeholder
         if (content.length === 0) {
-          content.push({ type: "text", text: " " });
+          content.push({ type: "text", text: "[Mensagem sem conteúdo]" });
         }
 
         return { 
           role: msg.role === 'assistant' ? 'assistant' : 'user', 
           content 
         };
+      })
+      .filter((msg: any) => {
+        // Final filter: ensure all messages have valid text content
+        return msg.content.some((c: any) => c.type === 'text' && c.text && c.text.trim().length > 0);
       });
 
     console.log("Sending request to Claude API with", claudeMessages.length, "messages");
