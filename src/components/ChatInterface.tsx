@@ -34,6 +34,8 @@ interface ChatInterfaceProps {
   onUndo?: () => void;
   canUndo?: boolean;
   isModeLocked?: boolean;
+  credits?: number;
+  onBuyCredits?: () => void;
 }
 
 export function ChatInterface({
@@ -49,7 +51,9 @@ export function ChatInterface({
   onProfileUpdate,
   onUndo,
   canUndo = false,
-  isModeLocked = false
+  isModeLocked = false,
+  credits = 0,
+  onBuyCredits
 }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
@@ -106,6 +110,19 @@ export function ChatInterface({
 
   const handleSend = async (overrideMode?: ChatMode) => {
     if ((!input.trim() && attachments.length === 0) || disabled || isExtractingPdf) return;
+
+    // Block if no credits
+    if (credits <= 0) {
+      toast.error('Seus créditos acabaram!', {
+        description: 'Compre mais créditos para continuar usando a AIRA.',
+        action: onBuyCredits ? {
+          label: 'Comprar',
+          onClick: onBuyCredits
+        } : undefined
+      });
+      onBuyCredits?.();
+      return;
+    }
 
     // Check for PDF attachments - extract content and send to AI as context
     const pdfAttachment = attachments.find(a => a.name.toLowerCase().endsWith('.pdf'));

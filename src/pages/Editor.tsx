@@ -450,6 +450,8 @@ export default function Editor() {
                 onUndo={undo}
                 canUndo={canUndo}
                 isModeLocked={isModeLocked}
+                credits={hasUnlimited() ? 9999 : userProfile.credits}
+                onBuyCredits={() => setShowBuyCreditsModal(true)}
               />
             </div>
           </aside>
@@ -484,7 +486,7 @@ export default function Editor() {
           {mobileView === 'chat' && (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="p-2"><JobDescriptionPanel value={jobDescription} onChange={setJobDescription} onSave={handleJobDescriptionSave} onClose={() => { }} savedValue={savedJobDescription} /></div>
-              <div className="flex-1 overflow-hidden"><ChatInterface messages={messages} isLoading={isLoading} thinkingStatus={thinkingStatus} mode={mode} onModeChange={setMode} onSendMessage={sendMessage} isModeLocked={isModeLocked} onResumeUpdate={handleResumeUpdate} /></div>
+              <div className="flex-1 overflow-hidden"><ChatInterface messages={messages} isLoading={isLoading} thinkingStatus={thinkingStatus} mode={mode} onModeChange={setMode} onSendMessage={sendMessage} isModeLocked={isModeLocked} onResumeUpdate={handleResumeUpdate} credits={hasUnlimited() ? 9999 : userProfile.credits} onBuyCredits={() => setShowBuyCreditsModal(true)} /></div>
             </div>
           )}
           {mobileView === 'preview' && (
