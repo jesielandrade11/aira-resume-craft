@@ -9,19 +9,19 @@ const corsHeaders = {
 
 // Credit packages configuration - Real Stripe price IDs
 const PACKAGES = {
+  credits_10: {
+    priceId: "price_1ScCcsIzG7NGcHuZXq2bHk8c",
+    credits: 10,
+    mode: "payment" as const,
+  },
   credits_30: {
-    priceId: "price_1Sdy8VACXnuYbfVrufn3Wli5",
+    priceId: "price_1SdfwGIzG7NGcHuZxFwHbQa3",
     credits: 30,
     mode: "payment" as const,
   },
-  credits_100: {
-    priceId: "price_1SdyAnACXnuYbfVrid6ulAOW",
-    credits: 100,
-    mode: "payment" as const,
-  },
-  credits_300: {
-    priceId: "price_1SdyBPACXnuYbfVrhGwjmlL0",
-    credits: 300,
+  credits_50: {
+    priceId: "price_1ScCdUIzG7NGcHuZAiwKP3sp",
+    credits: 50,
     mode: "payment" as const,
   },
 };
