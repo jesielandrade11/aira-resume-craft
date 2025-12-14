@@ -90,31 +90,53 @@ export function useAIRAChat({
   const parseAIResponse = useCallback((content: string, currentResume: ResumeData, isFinal = false) => {
     let profileUpdated = false;
 
-    // Check for resume updates - only process if we have a complete block
-    const resumeMatch = content.match(/```resume_update\n([\s\S]*?)\n```/);
+    // Multiple regex patterns to catch variations
+    const patterns = [
+      /```resume_update\n([\s\S]*?)\n```/,
+      /```resume_update\s*\n([\s\S]*?)\n```/,
+      /```resume_update([\s\S]*?)```/,
+      /```json\s*\n(\{[\s\S]*?"action":\s*"update"[\s\S]*?\})\n```/,
+    ];
+
+    let resumeMatch = null;
+    for (const pattern of patterns) {
+      resumeMatch = content.match(pattern);
+      if (resumeMatch) break;
+    }
+
     if (resumeMatch) {
       const jsonStr = resumeMatch[1].trim();
-      // Only try to parse if the JSON looks complete (ends with })
-      if (jsonStr.endsWith('}')) {
-        const updateHash = jsonStr.substring(0, 100); // Use first 100 chars as hash
+      console.log('[AIRA] Found resume_update block, length:', jsonStr.length);
+      
+      // Check if JSON looks complete
+      const openBraces = (jsonStr.match(/\{/g) || []).length;
+      const closeBraces = (jsonStr.match(/\}/g) || []).length;
+      const isComplete = openBraces === closeBraces && jsonStr.endsWith('}');
+      
+      if (isComplete) {
+        const updateHash = jsonStr.substring(0, 100);
         if (!appliedUpdatesRef.current.has(updateHash)) {
           try {
             const updateData = JSON.parse(jsonStr);
             if (updateData.action === 'update' && updateData.data) {
-              console.log('Applying resume update:', updateData.data);
+              console.log('[AIRA] ✅ Applying resume update:', updateData.data);
               appliedUpdatesRef.current.add(updateHash);
               pushToUndoHistory(currentResume);
               onResumeUpdate(updateData.data);
               toast.success('✓ Currículo atualizado!');
             }
           } catch (e) {
-            // Only log on final parse - during streaming JSON might be incomplete
             if (isFinal) {
-              console.error('Error parsing resume update:', e, jsonStr);
+              console.error('[AIRA] ❌ JSON parse error:', e, '\nJSON string:', jsonStr);
             }
           }
         }
+      } else if (isFinal) {
+        console.warn('[AIRA] ⚠️ Incomplete JSON block detected:', { openBraces, closeBraces, jsonStr: jsonStr.substring(0, 200) });
       }
+    } else if (isFinal && content.includes('update') && content.includes('data')) {
+      console.warn('[AIRA] ⚠️ No resume_update block found but content suggests update intent');
+      console.log('[AIRA] Full content for debug:', content.substring(0, 500));
     }
 
     // Check for profile updates
