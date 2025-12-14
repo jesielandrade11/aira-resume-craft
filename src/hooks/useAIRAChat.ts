@@ -43,6 +43,12 @@ export function useAIRAChat({
 
   const prevJobDescriptionRef = useRef(jobDescription);
   const undoHistory = useRef<ResumeData[]>([]);
+  const resumeRef = useRef(resume);
+
+  // Keep resumeRef in sync with latest resume state
+  useEffect(() => {
+    resumeRef.current = resume;
+  }, [resume]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
@@ -127,19 +133,19 @@ export function useAIRAChat({
 
     if (resumeMatch) {
       let jsonStr = resumeMatch[1].trim();
-      
+
       // For pattern 99 (fallback), the whole match is the JSON
       if (matchedPattern === 99) {
         jsonStr = resumeMatch[0];
       }
-      
+
       console.log('[AIRA] 🔍 Found resume_update (pattern', matchedPattern, '), length:', jsonStr.length);
-      
+
       // Check if JSON looks complete
       const openBraces = (jsonStr.match(/\{/g) || []).length;
       const closeBraces = (jsonStr.match(/\}/g) || []).length;
       const isComplete = openBraces === closeBraces && openBraces > 0;
-      
+
       if (isComplete || isFinal) {
         const updateHash = jsonStr.substring(0, 100);
         if (!appliedUpdatesRef.current.has(updateHash)) {
@@ -156,7 +162,7 @@ export function useAIRAChat({
                 throw new Error('Invalid JSON');
               }
             }
-            
+
             if (updateData.action === 'update' && updateData.data) {
               console.log('[AIRA] ✅ APPLYING UPDATE:', Object.keys(updateData.data));
               appliedUpdatesRef.current.add(updateHash);
@@ -180,19 +186,19 @@ export function useAIRAChat({
       /```profile_update\s*\n([\s\S]*?)\n```/,
       /```profile_update\s*([\s\S]*?)```/,
     ];
-    
+
     let profileMatch = null;
     for (const pattern of profilePatterns) {
       profileMatch = content.match(pattern);
       if (profileMatch) break;
     }
-    
+
     if (profileMatch) {
       const jsonStr = profileMatch[1].trim();
       const openBraces = (jsonStr.match(/\{/g) || []).length;
       const closeBraces = (jsonStr.match(/\}/g) || []).length;
       const isComplete = openBraces === closeBraces && openBraces > 0;
-      
+
       if (isComplete) {
         const updateHash = 'profile_' + jsonStr.substring(0, 50);
         if (!appliedUpdatesRef.current.has(updateHash)) {
@@ -289,14 +295,14 @@ export function useAIRAChat({
         if (lastMsg?.role === 'assistant') {
           return prev.map((m, i) =>
             i === prev.length - 1
-              ? { ...m, content: parseAIResponse(assistantContent, resume, isFinal) }
+              ? { ...m, content: parseAIResponse(assistantContent, resumeRef.current, isFinal) }
               : m
           );
         }
         return [...prev, {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: parseAIResponse(assistantContent, resume, isFinal),
+          content: parseAIResponse(assistantContent, resumeRef.current, isFinal),
           timestamp: new Date(),
         }];
       });
@@ -385,7 +391,7 @@ export function useAIRAChat({
         // Check if we got a partial response with resume_update - apply it even if stream failed
         if (streamError && assistantContent.includes('```resume_update')) {
           console.log('Applying partial resume_update despite stream error');
-          parseAIResponse(assistantContent, resume, true);
+          parseAIResponse(assistantContent, resumeRef.current, true);
         }
 
         // If stream had error but we got content, don't retry
@@ -421,7 +427,7 @@ export function useAIRAChat({
 
     setIsLoading(false);
     setThinkingStatus(null);
-  }, [messages, resume, userProfile, jobDescription, mode, onCreditsUsed, parseAIResponse]);
+  }, [messages, userProfile, jobDescription, mode, onCreditsUsed, parseAIResponse]);
 
   const clearChat = useCallback(() => {
     setMessages([]);
