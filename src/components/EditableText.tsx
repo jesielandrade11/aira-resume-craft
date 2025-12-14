@@ -1,6 +1,15 @@
 import { useState, useRef, useEffect, KeyboardEvent, CSSProperties, MouseEvent, TouchEvent } from 'react';
 import { cn } from '@/lib/utils';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Maximize2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 interface EditableTextProps {
   value: string;
@@ -28,6 +37,7 @@ export function EditableText({
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showHandle, setShowHandle] = useState(false);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 });
@@ -135,7 +145,7 @@ export function EditableText({
   if (isEditing) {
     const InputComponent = multiline ? 'textarea' : 'input';
     return (
-      <div 
+      <div
         ref={containerRef}
         className="relative inline-block"
         style={containerStyle}
@@ -149,12 +159,51 @@ export function EditableText({
           className={cn(
             'bg-transparent border-b border-resume-accent focus:outline-none focus:border-resume-primary w-full',
             'transition-colors duration-200',
-            multiline && 'resize-none min-h-[60px]',
+            multiline && 'resize-none min-h-[60px] pr-8', // Added pr-8 for maximize button
             className
           )}
           style={style}
           placeholder={placeholder}
         />
+
+        {multiline && (
+          <>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="absolute right-0 top-0 h-6 w-6 text-muted-foreground hover:text-primary z-10"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent blur
+                setIsPopupOpen(true);
+              }}
+              title="Expandir editor"
+            >
+              <Maximize2 className="w-3 h-3" />
+            </Button>
+
+            <Dialog open={isPopupOpen} onOpenChange={(open) => {
+              setIsPopupOpen(open);
+              if (!open) handleBlur(); // Save on close
+            }}>
+              <DialogContent className="sm:max-w-[725px] flex flex-col h-[80vh]">
+                <DialogHeader>
+                  <DialogTitle>Editar Texto</DialogTitle>
+                </DialogHeader>
+                <div className="flex-1 py-4">
+                  <Textarea
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="w-full h-full resize-none p-4 text-base leading-relaxed"
+                    placeholder={placeholder}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button onClick={() => setIsPopupOpen(false)}>Concluir</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </>
+        )}
       </div>
     );
   }
