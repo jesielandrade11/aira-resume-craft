@@ -305,42 +305,54 @@ serve(async (req) => {
       contextMessage += `\n\n📄 CURRÍCULO ATUAL:\n${JSON.stringify(resumeForContext, null, 2)}\n`;
     }
 
-    // Transform messages to Claude format
-    const claudeMessages = messages.map((msg: any) => {
-      const content: any[] = [];
+    // Transform messages to Claude format - FILTER OUT EMPTY MESSAGES
+    const claudeMessages = messages
+      .filter((msg: any) => {
+        // Filter out messages with empty or whitespace-only content
+        const hasTextContent = msg.content && msg.content.trim().length > 0;
+        const hasAttachments = msg.attachments && msg.attachments.length > 0;
+        return hasTextContent || hasAttachments;
+      })
+      .map((msg: any) => {
+        const content: any[] = [];
 
-      if (msg.content) {
-        content.push({ type: "text", text: msg.content });
-      }
+        if (msg.content && msg.content.trim()) {
+          content.push({ type: "text", text: msg.content });
+        }
 
-      if (msg.attachments && msg.attachments.length > 0) {
-        for (const attachment of msg.attachments) {
-          if (attachment.type === 'image' && attachment.base64) {
-            // Remove data:image/xxx;base64, prefix if present
-            const base64Data = attachment.base64.includes(',') 
-              ? attachment.base64.split(',')[1] 
-              : attachment.base64;
-            const mimeType = attachment.base64.includes(';') 
-              ? attachment.base64.split(';')[0].split(':')[1] 
-              : 'image/jpeg';
+        if (msg.attachments && msg.attachments.length > 0) {
+          for (const attachment of msg.attachments) {
+            if (attachment.type === 'image' && attachment.base64) {
+              // Remove data:image/xxx;base64, prefix if present
+              const base64Data = attachment.base64.includes(',') 
+                ? attachment.base64.split(',')[1] 
+                : attachment.base64;
+              const mimeType = attachment.base64.includes(';') 
+                ? attachment.base64.split(';')[0].split(':')[1] 
+                : 'image/jpeg';
 
-            content.push({
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mimeType,
-                data: base64Data
-              }
-            });
+              content.push({
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: mimeType,
+                  data: base64Data
+                }
+              });
+            }
           }
         }
-      }
 
-      return { 
-        role: msg.role === 'assistant' ? 'assistant' : 'user', 
-        content 
-      };
-    });
+        // Ensure content array is not empty
+        if (content.length === 0) {
+          content.push({ type: "text", text: " " });
+        }
+
+        return { 
+          role: msg.role === 'assistant' ? 'assistant' : 'user', 
+          content 
+        };
+      });
 
     console.log("Sending request to Claude API with", claudeMessages.length, "messages");
 
