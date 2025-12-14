@@ -9,9 +9,9 @@ const corsHeaders = {
 
 // Credit packages configuration (must match create-checkout)
 const PACKAGES: Record<string, { credits: number }> = {
-  credits_10: { credits: 10 },
   credits_30: { credits: 30 },
-  credits_50: { credits: 50 },
+  credits_100: { credits: 100 },
+  credits_300: { credits: 300 },
 };
 
 serve(async (req) => {
