@@ -5,82 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const EXTRACTION_PROMPT = `Você é um especialista em extrair informações de currículos em PDF.
-
-Analise o conteúdo do PDF fornecido e extraia TODAS as informações em formato JSON estruturado.
-
-Retorne APENAS um JSON válido no seguinte formato (sem markdown, sem explicações):
-
-{
-  "personalInfo": {
-    "fullName": "Nome completo",
-    "title": "Cargo/Título profissional",
-    "email": "email@exemplo.com",
-    "phone": "(XX) XXXXX-XXXX",
-    "location": "Cidade, Estado",
-    "linkedin": "linkedin.com/in/perfil",
-    "website": "site.com",
-    "summary": "Resumo profissional"
-  },
-  "experience": [
-    {
-      "id": "uuid",
-      "company": "Nome da Empresa",
-      "position": "Cargo",
-      "startDate": "Mês Ano",
-      "endDate": "Mês Ano ou Atual",
-      "description": "Descrição das atividades"
-    }
-  ],
-  "education": [
-    {
-      "id": "uuid",
-      "institution": "Nome da Instituição",
-      "degree": "Tipo de formação",
-      "field": "Área de estudo",
-      "startDate": "Ano",
-      "endDate": "Ano"
-    }
-  ],
-  "skills": [
-    {
-      "id": "uuid",
-      "name": "Nome da habilidade",
-      "level": "Básico|Intermediário|Avançado|Expert"
-    }
-  ],
-  "languages": [
-    {
-      "id": "uuid",
-      "name": "Idioma",
-      "proficiency": "Nível"
-    }
-  ],
-  "certifications": [
-    {
-      "id": "uuid",
-      "name": "Nome da Certificação",
-      "issuer": "Emissor",
-      "date": "Data"
-    }
-  ],
-  "projects": [
-    {
-      "id": "uuid",
-      "name": "Nome do Projeto",
-      "description": "Descrição",
-      "link": "URL opcional"
-    }
-  ]
-}
-
-IMPORTANTE:
-- Gere UUIDs únicos para cada item
-- Mantenha datas no formato original do documento
-- Se algum campo não existir, use string vazia ou array vazio
-- Extraia TODO o conteúdo disponível
-- Retorne APENAS o JSON, sem nenhum texto adicional`;
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -88,103 +12,33 @@ serve(async (req) => {
 
   try {
     const { pdfBase64, jobDescription } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
 
     if (!pdfBase64) {
       throw new Error("PDF content is required");
     }
 
-    console.log("Extracting PDF content using Lovable AI...");
+    console.log("PDF extraction requested - returning guidance for manual input");
 
-    // Remove data:application/pdf;base64, prefix if present
-    const base64Data = pdfBase64.split(',')[1] || pdfBase64;
-
-    // Build the prompt with context
-    const userPrompt = jobDescription
-      ? `Extraia as informações deste currículo. Considere que será usado para a seguinte vaga:\n\n${jobDescription}\n\nConteúdo do PDF em base64:\n${base64Data}`
-      : `Extraia todas as informações deste currículo em PDF.\n\nConteúdo do PDF em base64:\n${base64Data}`;
-
-    // Use Lovable AI Gateway (Gemini) to extract PDF content
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: EXTRACTION_PROMPT },
-          { role: "user", content: userPrompt }
-        ],
-        temperature: 0.1,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Lovable AI error:", response.status, errorText);
-
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes. Por favor, adicione créditos à sua conta." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      throw new Error("Erro ao processar PDF");
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("Não foi possível extrair o conteúdo do PDF");
-    }
-
-    console.log("PDF extraction response length:", content.length);
-
-    // Try to parse the JSON from the response
-    let extractedData;
-    try {
-      // Try to find JSON in the response (might be wrapped in markdown code blocks)
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || [null, content];
-      const jsonStr = jsonMatch[1] || content;
-      extractedData = JSON.parse(jsonStr.trim());
-    } catch (parseError) {
-      console.error("Error parsing extracted data:", parseError);
-      // Return raw content if parsing fails
-      return new Response(JSON.stringify({
-        error: "Não foi possível estruturar os dados extraídos",
-        rawContent: content
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
+    // Since Lovable AI Gateway doesn't support multimodal PDF processing,
+    // we return a structured response asking the user to paste the text content
     return new Response(JSON.stringify({
-      success: true,
-      data: extractedData
+      success: false,
+      needsManualInput: true,
+      message: "Para melhor extração, copie e cole o texto do seu currículo diretamente no chat. Abra o PDF, selecione todo o texto (Ctrl+A) e cole aqui.",
+      error: null
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (e) {
     console.error("PDF extraction error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }), {
-      status: 500,
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: e instanceof Error ? e.message : "Erro desconhecido",
+      needsManualInput: true,
+      message: "Não foi possível processar o PDF. Por favor, copie e cole o texto do seu currículo diretamente no chat."
+    }), {
+      status: 200, // Return 200 so frontend can handle gracefully
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

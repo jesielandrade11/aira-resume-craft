@@ -67,7 +67,7 @@ export function ChatInterface({
   const extractPdfContent = async (pdfBase64: string): Promise<Partial<ResumeData> | null> => {
     try {
       setIsExtractingPdf(true);
-      toast.info('Extraindo conteúdo do PDF...');
+      toast.info('Processando PDF...');
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf`, {
         method: 'POST',
@@ -81,25 +81,23 @@ export function ChatInterface({
         }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao extrair PDF');
-      }
-
       const result = await response.json();
+
+      // Handle manual input requirement
+      if (result.needsManualInput) {
+        toast.warning(result.message || 'Por favor, cole o texto do currículo diretamente no chat.');
+        return null;
+      }
 
       if (result.success && result.data) {
         toast.success('PDF extraído com sucesso!');
         return result.data;
-      } else if (result.rawContent) {
-        toast.warning('Não foi possível estruturar os dados. Usando texto bruto.');
-        return null;
       }
 
       return null;
     } catch (error) {
       console.error('PDF extraction error:', error);
-      toast.error(error instanceof Error ? error.message : 'Erro ao extrair PDF');
+      toast.error('Erro ao processar PDF. Cole o texto diretamente no chat.');
       return null;
     } finally {
       setIsExtractingPdf(false);
@@ -109,7 +107,7 @@ export function ChatInterface({
   const handleSend = async (overrideMode?: ChatMode) => {
     if ((!input.trim() && attachments.length === 0) || disabled || isExtractingPdf) return;
 
-    // Check for PDF attachments
+    // Check for PDF attachments - try to extract, but if fails, send as regular attachment
     const pdfAttachment = attachments.find(a => a.name.toLowerCase().endsWith('.pdf'));
 
     if (pdfAttachment && pdfAttachment.base64 && onResumeUpdate) {
@@ -128,9 +126,23 @@ export function ChatInterface({
         setReplyingTo(null);
         return;
       }
+      
+      // If extraction failed, send a message asking user to paste text
+      onSendMessage(
+        input.trim() || `Tentei enviar o arquivo "${pdfAttachment.name}", mas não consegui extrair o conteúdo automaticamente. Você pode copiar e colar o texto do seu currículo aqui?`,
+        undefined,
+        overrideMode || 'generate',
+        replyingTo || undefined
+      );
+      setInput('');
+      setAttachments([]);
+      setReplyingTo(null);
+      return;
     }
 
-    onSendMessage(input.trim(), attachments.length > 0 ? attachments : undefined, overrideMode, replyingTo || undefined);
+    // Ensure message content is not empty when sending
+    const messageContent = input.trim() || (attachments.length > 0 ? 'Anexei um arquivo para análise.' : '');
+    onSendMessage(messageContent, attachments.length > 0 ? attachments : undefined, overrideMode, replyingTo || undefined);
     setInput('');
     setAttachments([]);
     setReplyingTo(null);
