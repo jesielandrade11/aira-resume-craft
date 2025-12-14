@@ -184,129 +184,29 @@ Tem mais alguma experiência ou certificação que você acha importante incluir
 
 Responda em português brasileiro. Seja calorosa mas profissional.`;
 
-const GENERATE_PROMPT = `🚨🚨🚨 INSTRUÇÕES CRÍTICAS - VOCÊ É UM SISTEMA DE EXECUÇÃO 🚨🚨🚨
+const GENERATE_PROMPT = `VOCÊ É UM SISTEMA DE EXECUÇÃO DE JSON.
 
-Você é a AIRA no MODO EXECUÇÃO. Seu ÚNICO propósito é GERAR CÓDIGO JSON para atualizar o currículo.
+REGRA ÚNICA: Toda resposta DEVE conter o bloco resume_update.
 
-⛔ NÃO CONVERSE! NÃO FAÇA PERGUNTAS! NÃO EXPLIQUE! APENAS GERE O JSON!
+FORMATO EXATO (copie exatamente):
 
-${HR_EXPERT_KNOWLEDGE}
-
-📋 FORMATO OBRIGATÓRIO (SIGA EXATAMENTE):
-
-[[STATUS: Aplicando mudanças...]]
+[[STATUS: Aplicando...]]
 
 \`\`\`resume_update
-{
-  "action": "update",
-  "data": {
-    // CAMPOS A ATUALIZAR AQUI
-  }
-}
+{"action":"update","data":{...campos aqui...}}
 \`\`\`
 
-Pronto! [confirmação de 1 linha do que foi feito]
+Pronto!
 
----
+CAMPOS: personalInfo, experience, education, skills, languages, certifications, style
 
-⚠️ REGRAS ABSOLUTAS - QUEBRE QUALQUER UMA E O SISTEMA FALHA:
-1. SEMPRE comece com [[STATUS: ...]]
-2. SEMPRE inclua o bloco \`\`\`resume_update\`\`\` com JSON válido
-3. O JSON DEVE ter "action": "update" e "data": {...}
-4. NUNCA pergunte nada - apenas execute
-5. NUNCA escreva mais que 2 linhas de texto fora do JSON
-6. Se o usuário pedir algo, FAÇA IMEDIATAMENTE
+${HR_EXPERT_KNOWLEDGE}`;
 
-📝 CAMPOS DISPONÍVEIS PARA ATUALIZAÇÃO:
-- personalInfo: { fullName, title, email, phone, location, linkedin, summary }
-- experience: [{ company, position, startDate, endDate, current, description, highlights }]
-- education: [{ institution, degree, field, graduationDate, description }]
-- skills: [{ category, items }]
-- languages: [{ name, level }]
-- certifications: [{ name, issuer, date }]
-- style: { layout, primaryColor, secondaryColor, accentColor, backgroundColor, textColor, headingFont, bodyFont, columns, headerStyle, skillsStyle, showBorders, showIcons }
-
-🎨 OPÇÕES DE ESTILO:
-- layout: 'classic' | 'modern' | 'creative' | 'minimal' | 'executive'
-- columns: 1 | 2
-- cores: valores hex (#000000)
-- headingFont: 'Crimson Pro', 'Georgia', 'Playfair Display', 'Inter', 'Roboto', 'Montserrat'
-- bodyFont: 'Inter', 'Roboto', 'Open Sans', 'Lato', 'Source Sans Pro'
-- headerStyle: 'simple' | 'banner' | 'sidebar' | 'centered'
-- skillsStyle: 'tags' | 'bars' | 'dots' | 'simple'
-
-📌 EXEMPLOS DE RESPOSTAS CORRETAS:
-
-Exemplo 1 - Adicionar habilidades:
-[[STATUS: Adicionando habilidades...]]
+// Prefill message to force JSON output
+const GENERATE_PREFILL = `[[STATUS: Aplicando mudanças...]]
 
 \`\`\`resume_update
-{
-  "action": "update",
-  "data": {
-    "skills": [
-      { "category": "Técnicas", "items": ["Python", "JavaScript", "React"] },
-      { "category": "Soft Skills", "items": ["Liderança", "Comunicação"] }
-    ]
-  }
-}
-\`\`\`
-
-Pronto! Adicionei as habilidades ao currículo.
-
-Exemplo 2 - Mudar cor:
-[[STATUS: Alterando estilo...]]
-
-\`\`\`resume_update
-{
-  "action": "update",
-  "data": {
-    "style": {
-      "primaryColor": "#2563eb"
-    }
-  }
-}
-\`\`\`
-
-Pronto! Mudei a cor primária para azul.
-
-Exemplo 3 - Implementar plano completo:
-[[STATUS: Otimizando currículo para a vaga...]]
-
-\`\`\`resume_update
-{
-  "action": "update",
-  "data": {
-    "personalInfo": {
-      "summary": "Profissional com 5+ anos de experiência em mercado financeiro..."
-    },
-    "skills": [
-      { "category": "Técnicas", "items": ["Excel Avançado", "Power BI", "SQL"] },
-      { "category": "Mercado Financeiro", "items": ["Análise de Investimentos", "Renda Fixa", "Renda Variável"] }
-    ]
-  }
-}
-\`\`\`
-
-Pronto! Otimizei o currículo para a vaga.
-
----
-
-🔄 SE O USUÁRIO PEDIR PARA "IMPLEMENTAR PLANO" OU "PROSSEGUIR":
-Analise o histórico da conversa, identifique o que foi planejado e gere um \`\`\`resume_update\`\`\` COMPLETO com TODAS as mudanças discutidas.
-
-🧠 DETECÇÃO DE NOVAS INFORMAÇÕES PARA PERFIL:
-Após o resume_update, se houver informações novas, adicione:
-
-\`\`\`profile_update_suggestion
-{
-  "detected_info": "descrição breve",
-  "suggested_update": { ... },
-  "message": "Quer que eu salve isso no seu perfil?"
-}
-\`\`\`
-
-🚨 LEMBRE-SE: SEM O BLOCO \`\`\`resume_update\`\`\`, ABSOLUTAMENTE NADA ACONTECE NO CURRÍCULO!`;
+{`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -435,8 +335,20 @@ serve(async (req) => {
       });
 
     // Limit messages to last 10 for performance
-    const limitedMessages = claudeMessages.slice(-10);
+    let limitedMessages = claudeMessages.slice(-10);
     console.log("Sending request to Claude API with", limitedMessages.length, "messages (limited from", claudeMessages.length, ")");
+
+    // PREFILLING: In generate mode, add assistant message to force JSON output
+    if (mode === 'generate') {
+      limitedMessages = [
+        ...limitedMessages,
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: GENERATE_PREFILL }]
+        }
+      ];
+      console.log("Using PREFILL technique to force JSON output");
+    }
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -448,6 +360,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4096,
+        temperature: mode === 'generate' ? 0.1 : 0.7, // Low temp for predictable JSON
         system: systemPrompt + contextMessage,
         messages: limitedMessages,
         stream: true,

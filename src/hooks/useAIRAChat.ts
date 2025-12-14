@@ -90,70 +90,89 @@ export function useAIRAChat({
   const parseAIResponse = useCallback((content: string, currentResume: ResumeData, isFinal = false) => {
     let profileUpdated = false;
 
-    // Multiple regex patterns to catch all variations of resume_update block
+    // PREFILL RECONSTRUCTION: If content starts with continuation from prefill, reconstruct it
+    let processedContent = content;
+    if (!content.includes('```resume_update') && content.trim().startsWith('"action"')) {
+      // Claude continued from prefill, reconstruct the full block
+      processedContent = `[[STATUS: Aplicando mudanças...]]\n\n\`\`\`resume_update\n{${content}`;
+      console.log('[AIRA] 🔄 Reconstructed prefill content');
+    }
+
+    // Multiple regex patterns to catch all variations
     const patterns = [
-      /```resume_update\s*\n([\s\S]*?)\n```/,
-      /```resume_update\s*([\s\S]*?)```/,
+      /```resume_update\s*\n?([\s\S]*?)\n?```/,
       /```resume_update([\s\S]*?)```/,
-      /```json\s*\n(\{[\s\S]*?"action"\s*:\s*"update"[\s\S]*?\})\s*\n```/,
-      /```\s*\n(\{[\s\S]*?"action"\s*:\s*"update"[\s\S]*?\})\s*\n```/,
+      /\{"action"\s*:\s*"update"\s*,\s*"data"\s*:\s*(\{[\s\S]*?\})\s*\}/,
     ];
 
     let resumeMatch = null;
     let matchedPattern = -1;
     for (let i = 0; i < patterns.length; i++) {
-      resumeMatch = content.match(patterns[i]);
+      resumeMatch = processedContent.match(patterns[i]);
       if (resumeMatch) {
         matchedPattern = i;
         break;
       }
     }
 
+    // FALLBACK: Try to find raw JSON with action/update anywhere
+    if (!resumeMatch && isFinal) {
+      const fallbackMatch = processedContent.match(/\{[\s\S]*?"action"\s*:\s*"update"[\s\S]*?"data"\s*:\s*\{[\s\S]*?\}\s*\}/);
+      if (fallbackMatch) {
+        resumeMatch = [fallbackMatch[0], fallbackMatch[0]];
+        matchedPattern = 99; // Fallback pattern
+        console.log('[AIRA] 🔄 Using fallback JSON extraction');
+      }
+    }
+
     if (resumeMatch) {
-      const jsonStr = resumeMatch[1].trim();
-      console.log('[AIRA] 🔍 Found resume_update block (pattern', matchedPattern, '), length:', jsonStr.length);
-      console.log('[AIRA] 🔍 JSON preview:', jsonStr.substring(0, 300));
+      let jsonStr = resumeMatch[1].trim();
       
-      // Check if JSON looks complete by counting braces
+      // For pattern 99 (fallback), the whole match is the JSON
+      if (matchedPattern === 99) {
+        jsonStr = resumeMatch[0];
+      }
+      
+      console.log('[AIRA] 🔍 Found resume_update (pattern', matchedPattern, '), length:', jsonStr.length);
+      
+      // Check if JSON looks complete
       const openBraces = (jsonStr.match(/\{/g) || []).length;
       const closeBraces = (jsonStr.match(/\}/g) || []).length;
-      const isComplete = openBraces === closeBraces && openBraces > 0 && jsonStr.endsWith('}');
+      const isComplete = openBraces === closeBraces && openBraces > 0;
       
-      console.log('[AIRA] 🔍 Brace count:', { openBraces, closeBraces, isComplete });
-      
-      if (isComplete) {
+      if (isComplete || isFinal) {
         const updateHash = jsonStr.substring(0, 100);
         if (!appliedUpdatesRef.current.has(updateHash)) {
           try {
-            const updateData = JSON.parse(jsonStr);
+            // Try to parse, handling potential JSON issues
+            let updateData;
+            try {
+              updateData = JSON.parse(jsonStr);
+            } catch {
+              // Try wrapping in action/data structure if it's just the data object
+              if (!jsonStr.includes('"action"')) {
+                updateData = { action: 'update', data: JSON.parse(jsonStr) };
+              } else {
+                throw new Error('Invalid JSON');
+              }
+            }
+            
             if (updateData.action === 'update' && updateData.data) {
-              console.log('[AIRA] ✅ APPLYING RESUME UPDATE:', JSON.stringify(updateData.data, null, 2));
+              console.log('[AIRA] ✅ APPLYING UPDATE:', Object.keys(updateData.data));
               appliedUpdatesRef.current.add(updateHash);
               pushToUndoHistory(currentResume);
               onResumeUpdate(updateData.data);
               toast.success('✓ Currículo atualizado!');
-            } else {
-              console.warn('[AIRA] ⚠️ JSON parsed but missing action or data:', updateData);
             }
           } catch (e) {
-            console.error('[AIRA] ❌ JSON parse error:', e);
-            console.error('[AIRA] ❌ Failed JSON:', jsonStr);
+            if (isFinal) {
+              console.error('[AIRA] ❌ JSON parse error:', e);
+            }
           }
-        } else {
-          console.log('[AIRA] ⏭️ Skipping already applied update');
         }
-      } else if (!isFinal) {
-        console.log('[AIRA] ⏳ JSON incomplete, waiting for more data...');
-      } else {
-        console.warn('[AIRA] ⚠️ Incomplete JSON block on final parse:', { openBraces, closeBraces });
-        console.warn('[AIRA] ⚠️ JSON content:', jsonStr);
       }
-    } else if (isFinal) {
-      // Debug: Log if we expected an update but didn't find one
-      if (content.includes('"action"') && content.includes('"update"')) {
-        console.warn('[AIRA] ⚠️ Content contains action/update but no valid block found');
-        console.log('[AIRA] 📄 Full content for debug:\n', content);
-      }
+    } else if (isFinal && processedContent.includes('"data"')) {
+      console.warn('[AIRA] ⚠️ No valid block found but content has data');
     }
 
     // Check for profile updates
