@@ -85,32 +85,57 @@ export function useAIRAChat({
     }
   }, [onResumeUpdate]);
 
-  const parseAIResponse = useCallback((content: string, currentResume: ResumeData) => {
+  const appliedUpdatesRef = useRef<Set<string>>(new Set());
+
+  const parseAIResponse = useCallback((content: string, currentResume: ResumeData, isFinal = false) => {
     let profileUpdated = false;
 
-    // Check for resume updates
+    // Check for resume updates - only process if we have a complete block
     const resumeMatch = content.match(/```resume_update\n([\s\S]*?)\n```/);
     if (resumeMatch) {
-      try {
-        const updateData = JSON.parse(resumeMatch[1]);
-        if (updateData.action === 'update' && updateData.data) {
-          pushToUndoHistory(currentResume);
-          onResumeUpdate(updateData.data);
+      const jsonStr = resumeMatch[1].trim();
+      // Only try to parse if the JSON looks complete (ends with })
+      if (jsonStr.endsWith('}')) {
+        const updateHash = jsonStr.substring(0, 100); // Use first 100 chars as hash
+        if (!appliedUpdatesRef.current.has(updateHash)) {
+          try {
+            const updateData = JSON.parse(jsonStr);
+            if (updateData.action === 'update' && updateData.data) {
+              console.log('Applying resume update:', updateData.data);
+              appliedUpdatesRef.current.add(updateHash);
+              pushToUndoHistory(currentResume);
+              onResumeUpdate(updateData.data);
+              toast.success('✓ Currículo atualizado!');
+            }
+          } catch (e) {
+            // Only log on final parse - during streaming JSON might be incomplete
+            if (isFinal) {
+              console.error('Error parsing resume update:', e, jsonStr);
+            }
+          }
         }
-      } catch (e) {
-        console.error('Error parsing resume update:', e);
       }
     }
 
     // Check for profile updates
     const profileMatch = content.match(/```profile_update\n([\s\S]*?)\n```/);
     if (profileMatch) {
-      try {
-        const profileData = JSON.parse(profileMatch[1]);
-        onProfileUpdate(profileData);
-        profileUpdated = true;
-      } catch (e) {
-        console.error('Error parsing profile update:', e);
+      const jsonStr = profileMatch[1].trim();
+      if (jsonStr.endsWith('}')) {
+        const updateHash = 'profile_' + jsonStr.substring(0, 50);
+        if (!appliedUpdatesRef.current.has(updateHash)) {
+          try {
+            const profileData = JSON.parse(jsonStr);
+            console.log('Applying profile update:', profileData);
+            appliedUpdatesRef.current.add(updateHash);
+            onProfileUpdate(profileData);
+            profileUpdated = true;
+          } catch (e) {
+            if (isFinal) {
+              console.error('Error parsing profile update:', e);
+            }
+          }
+        }
       }
     }
 
@@ -167,13 +192,14 @@ export function useAIRAChat({
     onCreditsUsed(creditCost);
 
     let assistantContent = '';
-    let currentStatusMatch = '';
 
-    const upsertAssistant = (chunk: string) => {
+    // Clear applied updates cache for new message
+    appliedUpdatesRef.current.clear();
+
+    const upsertAssistant = (chunk: string, isFinal = false) => {
       assistantContent += chunk;
 
       // Check for Status updates in the full content stream
-      // We look for the LAST occurrence of [[STATUS: ...]]
       const statusRegex = /\[\[STATUS: (.*?)\]\]/g;
       let match;
       let lastStatus = null;
@@ -190,14 +216,14 @@ export function useAIRAChat({
         if (lastMsg?.role === 'assistant') {
           return prev.map((m, i) =>
             i === prev.length - 1
-              ? { ...m, content: parseAIResponse(assistantContent, resume) }
+              ? { ...m, content: parseAIResponse(assistantContent, resume, isFinal) }
               : m
           );
         }
         return [...prev, {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: parseAIResponse(assistantContent, resume),
+          content: parseAIResponse(assistantContent, resume, isFinal),
           timestamp: new Date(),
         }];
       });
@@ -269,10 +295,14 @@ export function useAIRAChat({
                 try {
                   const parsed = JSON.parse(jsonStr);
                   const deltaContent = parsed.choices?.[0]?.delta?.content;
-                  if (deltaContent) upsertAssistant(deltaContent);
+                  if (deltaContent) upsertAssistant(deltaContent, false);
                 } catch { /* ignore */ }
               }
             }
+          }
+          // Final parse to ensure updates are applied
+          if (assistantContent) {
+            upsertAssistant('', true);
           }
         } catch (streamErr) {
           console.warn('Stream interrupted:', streamErr);
@@ -282,7 +312,7 @@ export function useAIRAChat({
         // Check if we got a partial response with resume_update - apply it even if stream failed
         if (streamError && assistantContent.includes('```resume_update')) {
           console.log('Applying partial resume_update despite stream error');
-          parseAIResponse(assistantContent, resume);
+          parseAIResponse(assistantContent, resume, true);
         }
 
         // If stream had error but we got content, don't retry
