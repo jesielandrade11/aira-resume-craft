@@ -234,10 +234,15 @@ export default function Editor() {
   const handleCreditsUsed = useCallback(async (amount: number) => {
     if (hasUnlimited()) return;
     const success = await useCredits(amount);
-    if (!success) {
-      setTimeout(() => setShowBuyCreditsModal(true), 500);
+    if (!success && userProfile.credits <= 0) {
+      toast.error('Seus créditos acabaram!', {
+        action: {
+          label: 'Comprar créditos',
+          onClick: () => setShowBuyCreditsModal(true)
+        }
+      });
     }
-  }, [useCredits, hasUnlimited]);
+  }, [useCredits, hasUnlimited, userProfile.credits]);
 
   const [savedJobDescription, setSavedJobDescription] = useState(jobDescription);
   const { messages, isLoading, thinkingStatus, mode, setMode, sendMessage, clearChat, canUndo, undo, isModeLocked, activateJobMode, deactivateJobMode } = useAIRAChat({
@@ -392,16 +397,24 @@ export default function Editor() {
             <Button variant="ghost" size="icon" onClick={handleReset} title="Recomeçar"><RotateCcw className="w-4 h-4" /></Button>
           </div>
 
-          {[/* Mobile Actions - Simplified for brevity but kept functional */]}
-          <div className="flex sm:hidden items-center gap-1">
+          {/* Mobile Actions */}
+          <div className="flex sm:hidden items-center gap-2">
+            <CreditsDisplay credits={credits} onUpgrade={() => setShowBuyCreditsModal(true)} />
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild><Button variant="outline" size="icon"><Menu className="w-4 h-4" /></Button></SheetTrigger>
               <SheetContent side="right">
-                {/* Mobile menu content matching desktop */}
                 <div className="flex flex-col gap-4 mt-6">
+                  <UserProfileModal profile={userProfile}>
+                    <Button variant="outline" className="justify-start gap-2"><User className="w-4 h-4" /> Meu Perfil</Button>
+                  </UserProfileModal>
+                  <PhotoUpload 
+                    currentPhoto={resume.personalInfo.photo} 
+                    onPhotoChange={(photo) => handleResumeUpdate({ personalInfo: { ...resume.personalInfo, photo } })} 
+                  />
                   <Button onClick={handleManualSave} className="justify-start gap-2"><Save className="w-4 h-4" /> Salvar Currículo</Button>
                   <Button onClick={handleExportPDF} variant="outline" className="justify-start gap-2"><Download className="w-4 h-4" /> Baixar PDF</Button>
                   <Button onClick={() => navigate('/')} variant="ghost" className="justify-start gap-2"><Home className="w-4 h-4" /> Voltar ao Início</Button>
+                  <Button onClick={handleReset} variant="ghost" className="justify-start gap-2"><RotateCcw className="w-4 h-4" /> Recomeçar</Button>
                 </div>
               </SheetContent>
             </Sheet>
