@@ -366,7 +366,7 @@ export default function Editor() {
 
           {/* Desktop Actions */}
           <div className="hidden sm:flex items-center gap-2">
-            <CreditsDisplay credits={credits} />
+            <CreditsDisplay credits={credits} onUpgrade={() => setShowBuyCreditsModal(true)} />
             <Button variant="outline" size="sm" onClick={() => navigate('/')} title="Início">
               <Home className="w-4 h-4" />
             </Button>

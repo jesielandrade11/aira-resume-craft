@@ -241,10 +241,10 @@ serve(async (req) => {
 
   try {
     const { messages, resume, userProfile, jobDescription, attachments, mode = 'planning' } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     console.log("Chat mode:", mode);
@@ -305,24 +305,30 @@ serve(async (req) => {
       contextMessage += `\n\n📄 CURRÍCULO ATUAL:\n${JSON.stringify(resumeForContext, null, 2)}\n`;
     }
 
-    // Transform messages to Gemini format
-    const geminiContents = messages.map((msg: any) => {
-      const parts: any[] = [];
+    // Transform messages to Claude format
+    const claudeMessages = messages.map((msg: any) => {
+      const content: any[] = [];
 
       if (msg.content) {
-        parts.push({ text: msg.content });
+        content.push({ type: "text", text: msg.content });
       }
 
       if (msg.attachments && msg.attachments.length > 0) {
         for (const attachment of msg.attachments) {
           if (attachment.type === 'image' && attachment.base64) {
             // Remove data:image/xxx;base64, prefix if present
-            const base64Data = attachment.base64.split(',')[1] || attachment.base64;
-            const mimeType = attachment.base64.split(';')[0].split(':')[1] || 'image/jpeg';
+            const base64Data = attachment.base64.includes(',') 
+              ? attachment.base64.split(',')[1] 
+              : attachment.base64;
+            const mimeType = attachment.base64.includes(';') 
+              ? attachment.base64.split(';')[0].split(':')[1] 
+              : 'image/jpeg';
 
-            parts.push({
-              inline_data: {
-                mime_type: mimeType,
+            content.push({
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: mimeType,
                 data: base64Data
               }
             });
@@ -330,38 +336,33 @@ serve(async (req) => {
         }
       }
 
-      // Map 'assistant' role to 'model' for Gemini
-      const role = msg.role === 'assistant' ? 'model' : 'user';
-
-      return { role, parts };
+      return { 
+        role: msg.role === 'assistant' ? 'assistant' : 'user', 
+        content 
+      };
     });
 
-    // Add system instruction
-    // Gemini API supports system_instruction field
-    const systemInstruction = {
-      parts: [{ text: systemPrompt + contextMessage }]
-    };
+    console.log("Sending request to Claude API with", claudeMessages.length, "messages");
 
-    console.log("Sending request to Gemini API with", geminiContents.length, "messages");
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        contents: geminiContents,
-        system_instruction: systemInstruction,
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 8192,
-        }
+        model: "claude-opus-4-1-20250805",
+        max_tokens: 8192,
+        system: systemPrompt + contextMessage,
+        messages: claudeMessages,
+        stream: true,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gemini API error:", response.status, errorText);
+      console.error("Claude API error:", response.status, errorText);
 
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
@@ -370,13 +371,13 @@ serve(async (req) => {
         });
       }
 
-      return new Response(JSON.stringify({ error: "Erro ao processar sua mensagem com Gemini. Tente novamente." }), {
+      return new Response(JSON.stringify({ error: "Erro ao processar sua mensagem. Tente novamente." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Create a TransformStream to convert Gemini's JSON stream to SSE format expected by the client
+    // Create a TransformStream to convert Claude's SSE stream to our expected format
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
     const reader = response.body?.getReader();
@@ -384,7 +385,7 @@ serve(async (req) => {
     const decoder = new TextDecoder();
 
     if (!reader) {
-      throw new Error("No response body from Gemini API");
+      throw new Error("No response body from Claude API");
     }
 
     // Process the stream in the background
@@ -398,82 +399,60 @@ serve(async (req) => {
 
           buffer += decoder.decode(value, { stream: true });
 
-          // Gemini returns a JSON array of objects, but streamed as individual JSON objects
-          // We need to parse them. The format is typically:
-          // [{...},
-          // {...},
-          // ...]
-          // But since we are using streamGenerateContent, it sends chunks.
+          // Process complete lines
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
-          // Simple parsing strategy: split by newlines or handle JSON objects
-          // The raw stream from Gemini is a list of JSON objects.
-          // Example:
-          // [
-          //   { "candidates": [...] }
-          // ,
-          //   { "candidates": [...] }
-          // ]
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const jsonStr = line.slice(6);
+              if (jsonStr === '[DONE]') continue;
 
-          // We'll try to clean up the buffer to parse valid JSON objects
-          // This is a bit tricky with raw HTTP stream, so let's simplify:
-          // We will look for "text" fields in the response chunks.
-
-          // Actually, let's just forward the text content as SSE
-          // We need to parse the JSON chunks properly.
-
-          // A robust way to parse the stream is to accumulate and find matching brackets
-          // For now, let's assume standard JSON array streaming format
-
-          // Let's use a simpler approach:
-          // The response is a JSON array. We can strip the starting '[' and ending ']' and split by ','
-          // But that's risky if the content contains those chars.
-
-          // Better approach: regex to find "text": "..."
-          // Or just parse complete JSON objects if possible.
-
-          // Let's try to parse complete JSON objects from the buffer
-          let startIndex = 0;
-          let depth = 0;
-          let inString = false;
-
-          for (let i = 0; i < buffer.length; i++) {
-            const char = buffer[i];
-
-            if (char === '"' && buffer[i - 1] !== '\\') {
-              inString = !inString;
-            }
-
-            if (!inString) {
-              if (char === '{') {
-                if (depth === 0) startIndex = i;
-                depth++;
-              } else if (char === '}') {
-                depth--;
-                if (depth === 0) {
-                  // Found a complete JSON object
-                  const jsonStr = buffer.substring(startIndex, i + 1);
-                  try {
-                    const parsed = JSON.parse(jsonStr);
-                    const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                    if (text) {
-                      // Format as SSE for the client (OpenAI style)
-                      // The client expects: data: {"choices":[{"delta":{"content":"..."}}]}
-                      const sseMessage = {
-                        choices: [{
-                          delta: { content: text }
-                        }]
-                      };
-                      await writer.write(encoder.encode(`data: ${JSON.stringify(sseMessage)}\n\n`));
-                    }
-                  } catch (e) {
-                    console.error("Error parsing JSON chunk:", e);
-                  }
-
-                  // Advance buffer
-                  buffer = buffer.substring(i + 1);
-                  i = -1; // Reset loop for new buffer
+              try {
+                const parsed = JSON.parse(jsonStr);
+                
+                // Handle different Claude event types
+                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                  // Convert to our expected SSE format
+                  const sseData = {
+                    choices: [{
+                      delta: {
+                        content: parsed.delta.text
+                      }
+                    }]
+                  };
+                  await writer.write(encoder.encode(`data: ${JSON.stringify(sseData)}\n\n`));
+                } else if (parsed.type === 'message_stop') {
+                  await writer.write(encoder.encode('data: [DONE]\n\n'));
                 }
+              } catch (e) {
+                // Skip unparseable lines
+              }
+            }
+          }
+        }
+
+        // Process remaining buffer
+        if (buffer.trim()) {
+          const lines = buffer.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const jsonStr = line.slice(6);
+              if (jsonStr === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(jsonStr);
+                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                  const sseData = {
+                    choices: [{
+                      delta: {
+                        content: parsed.delta.text
+                      }
+                    }]
+                  };
+                  await writer.write(encoder.encode(`data: ${JSON.stringify(sseData)}\n\n`));
+                }
+              } catch (e) {
+                // Skip
               }
             }
           }
@@ -481,19 +460,27 @@ serve(async (req) => {
 
         await writer.write(encoder.encode('data: [DONE]\n\n'));
         await writer.close();
-      } catch (e) {
-        console.error("Stream processing error:", e);
-        await writer.abort(e);
+      } catch (error) {
+        console.error("Stream processing error:", error);
+        try {
+          await writer.abort(error);
+        } catch (e) {
+          // Writer already closed
+        }
       }
     })();
 
     return new Response(readable, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
     });
-
-  } catch (e) {
-    console.error("AIRA chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }), {
+  } catch (error) {
+    console.error("Error in aira-chat function:", error);
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
