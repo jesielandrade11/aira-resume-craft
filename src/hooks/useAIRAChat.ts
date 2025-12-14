@@ -90,28 +90,36 @@ export function useAIRAChat({
   const parseAIResponse = useCallback((content: string, currentResume: ResumeData, isFinal = false) => {
     let profileUpdated = false;
 
-    // Multiple regex patterns to catch variations
+    // Multiple regex patterns to catch all variations of resume_update block
     const patterns = [
-      /```resume_update\n([\s\S]*?)\n```/,
       /```resume_update\s*\n([\s\S]*?)\n```/,
+      /```resume_update\s*([\s\S]*?)```/,
       /```resume_update([\s\S]*?)```/,
-      /```json\s*\n(\{[\s\S]*?"action":\s*"update"[\s\S]*?\})\n```/,
+      /```json\s*\n(\{[\s\S]*?"action"\s*:\s*"update"[\s\S]*?\})\s*\n```/,
+      /```\s*\n(\{[\s\S]*?"action"\s*:\s*"update"[\s\S]*?\})\s*\n```/,
     ];
 
     let resumeMatch = null;
-    for (const pattern of patterns) {
-      resumeMatch = content.match(pattern);
-      if (resumeMatch) break;
+    let matchedPattern = -1;
+    for (let i = 0; i < patterns.length; i++) {
+      resumeMatch = content.match(patterns[i]);
+      if (resumeMatch) {
+        matchedPattern = i;
+        break;
+      }
     }
 
     if (resumeMatch) {
       const jsonStr = resumeMatch[1].trim();
-      console.log('[AIRA] Found resume_update block, length:', jsonStr.length);
+      console.log('[AIRA] 🔍 Found resume_update block (pattern', matchedPattern, '), length:', jsonStr.length);
+      console.log('[AIRA] 🔍 JSON preview:', jsonStr.substring(0, 300));
       
-      // Check if JSON looks complete
+      // Check if JSON looks complete by counting braces
       const openBraces = (jsonStr.match(/\{/g) || []).length;
       const closeBraces = (jsonStr.match(/\}/g) || []).length;
-      const isComplete = openBraces === closeBraces && jsonStr.endsWith('}');
+      const isComplete = openBraces === closeBraces && openBraces > 0 && jsonStr.endsWith('}');
+      
+      console.log('[AIRA] 🔍 Brace count:', { openBraces, closeBraces, isComplete });
       
       if (isComplete) {
         const updateHash = jsonStr.substring(0, 100);
@@ -119,42 +127,65 @@ export function useAIRAChat({
           try {
             const updateData = JSON.parse(jsonStr);
             if (updateData.action === 'update' && updateData.data) {
-              console.log('[AIRA] ✅ Applying resume update:', updateData.data);
+              console.log('[AIRA] ✅ APPLYING RESUME UPDATE:', JSON.stringify(updateData.data, null, 2));
               appliedUpdatesRef.current.add(updateHash);
               pushToUndoHistory(currentResume);
               onResumeUpdate(updateData.data);
               toast.success('✓ Currículo atualizado!');
+            } else {
+              console.warn('[AIRA] ⚠️ JSON parsed but missing action or data:', updateData);
             }
           } catch (e) {
-            if (isFinal) {
-              console.error('[AIRA] ❌ JSON parse error:', e, '\nJSON string:', jsonStr);
-            }
+            console.error('[AIRA] ❌ JSON parse error:', e);
+            console.error('[AIRA] ❌ Failed JSON:', jsonStr);
           }
+        } else {
+          console.log('[AIRA] ⏭️ Skipping already applied update');
         }
-      } else if (isFinal) {
-        console.warn('[AIRA] ⚠️ Incomplete JSON block detected:', { openBraces, closeBraces, jsonStr: jsonStr.substring(0, 200) });
+      } else if (!isFinal) {
+        console.log('[AIRA] ⏳ JSON incomplete, waiting for more data...');
+      } else {
+        console.warn('[AIRA] ⚠️ Incomplete JSON block on final parse:', { openBraces, closeBraces });
+        console.warn('[AIRA] ⚠️ JSON content:', jsonStr);
       }
-    } else if (isFinal && content.includes('update') && content.includes('data')) {
-      console.warn('[AIRA] ⚠️ No resume_update block found but content suggests update intent');
-      console.log('[AIRA] Full content for debug:', content.substring(0, 500));
+    } else if (isFinal) {
+      // Debug: Log if we expected an update but didn't find one
+      if (content.includes('"action"') && content.includes('"update"')) {
+        console.warn('[AIRA] ⚠️ Content contains action/update but no valid block found');
+        console.log('[AIRA] 📄 Full content for debug:\n', content);
+      }
     }
 
     // Check for profile updates
-    const profileMatch = content.match(/```profile_update\n([\s\S]*?)\n```/);
+    const profilePatterns = [
+      /```profile_update\s*\n([\s\S]*?)\n```/,
+      /```profile_update\s*([\s\S]*?)```/,
+    ];
+    
+    let profileMatch = null;
+    for (const pattern of profilePatterns) {
+      profileMatch = content.match(pattern);
+      if (profileMatch) break;
+    }
+    
     if (profileMatch) {
       const jsonStr = profileMatch[1].trim();
-      if (jsonStr.endsWith('}')) {
+      const openBraces = (jsonStr.match(/\{/g) || []).length;
+      const closeBraces = (jsonStr.match(/\}/g) || []).length;
+      const isComplete = openBraces === closeBraces && openBraces > 0;
+      
+      if (isComplete) {
         const updateHash = 'profile_' + jsonStr.substring(0, 50);
         if (!appliedUpdatesRef.current.has(updateHash)) {
           try {
             const profileData = JSON.parse(jsonStr);
-            console.log('Applying profile update:', profileData);
+            console.log('[AIRA] ✅ Applying profile update:', profileData);
             appliedUpdatesRef.current.add(updateHash);
             onProfileUpdate(profileData);
             profileUpdated = true;
           } catch (e) {
             if (isFinal) {
-              console.error('Error parsing profile update:', e);
+              console.error('[AIRA] ❌ Profile JSON parse error:', e);
             }
           }
         }
@@ -165,14 +196,15 @@ export function useAIRAChat({
       toast.success('✓ Informações salvas no seu perfil!');
     }
 
-    // Clean response
+    // Clean response - remove all technical blocks
     return content
-      .replace(/```resume_update\n[\s\S]*?\n```/g, '')
-      .replace(/```profile_update\n[\s\S]*?\n```/g, '')
-      .replace(/```profile_update_suggestion\n[\s\S]*?\n```/g, '')
+      .replace(/```resume_update[\s\S]*?```/g, '')
+      .replace(/```profile_update[\s\S]*?```/g, '')
+      .replace(/```profile_update_suggestion[\s\S]*?```/g, '')
+      .replace(/```json[\s\S]*?```/g, '')
       .replace(/^Thinking:.*$/gm, '')
       .replace(/^Log:.*$/gm, '')
-      .replace(/\[\[STATUS:.*?\]\]/g, '') // Remove Status tags
+      .replace(/\[\[STATUS:.*?\]\]/g, '')
       .trim();
   }, [onResumeUpdate, onProfileUpdate, pushToUndoHistory]);
 
