@@ -145,6 +145,7 @@
 }
 
 @layer components {
+
   /* A4 Resume Styles */
   .resume-container {
     @apply flex flex-col items-center gap-8;
@@ -217,12 +218,14 @@
   }
 
   .resume-page {
-    width: 210mm;
-    height: 297mm;
+    width: 100%;
+    height: auto;
+    min-height: 297mm;
     margin: 0;
     padding: 20mm 18mm;
     box-shadow: none;
-    page-break-after: always;
+    overflow: visible;
+    page-break-after: auto;
   }
 
   .resume-section {
