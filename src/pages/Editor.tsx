@@ -239,7 +239,7 @@ export default function Editor() {
   }, [useCredits, hasUnlimited]);
 
   const [savedJobDescription, setSavedJobDescription] = useState(jobDescription);
-  const { messages, isLoading, mode, setMode, sendMessage, clearChat, canUndo, undo, isModeLocked, activateJobMode, deactivateJobMode } = useAIRAChat({
+  const { messages, isLoading, thinkingStatus, mode, setMode, sendMessage, clearChat, canUndo, undo, isModeLocked, activateJobMode, deactivateJobMode } = useAIRAChat({
     resume,
     userProfile,
     jobDescription: savedJobDescription,
@@ -423,6 +423,7 @@ export default function Editor() {
               <ChatInterface
                 messages={messages}
                 isLoading={isLoading}
+                thinkingStatus={thinkingStatus}
                 mode={mode}
                 onModeChange={setMode}
                 onSendMessage={sendMessage}
@@ -466,7 +467,7 @@ export default function Editor() {
           {mobileView === 'chat' && (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="p-2"><JobDescriptionPanel value={jobDescription} onChange={setJobDescription} onSave={handleJobDescriptionSave} onClose={() => { }} savedValue={savedJobDescription} /></div>
-              <div className="flex-1 overflow-hidden"><ChatInterface messages={messages} isLoading={isLoading} mode={mode} onModeChange={setMode} onSendMessage={sendMessage} isModeLocked={isModeLocked} onResumeUpdate={handleResumeUpdate} /></div>
+              <div className="flex-1 overflow-hidden"><ChatInterface messages={messages} isLoading={isLoading} thinkingStatus={thinkingStatus} mode={mode} onModeChange={setMode} onSendMessage={sendMessage} isModeLocked={isModeLocked} onResumeUpdate={handleResumeUpdate} /></div>
             </div>
           )}
           {mobileView === 'preview' && (
