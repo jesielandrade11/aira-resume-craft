@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const getAllowedOrigin = (requestOrigin: string | null): string => {
   const allowedOrigins = [
@@ -19,6 +20,10 @@ const getCorsHeaders = (requestOrigin: string | null) => ({
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 });
 
+// Input validation constants
+const MAX_BASE64_LENGTH = 13 * 1024 * 1024; // ~10MB decoded
+const MAX_JOB_DESCRIPTION_LENGTH = 5000;
+
 serve(async (req) => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
@@ -28,10 +33,97 @@ serve(async (req) => {
   }
 
   try {
+    // 1. VERIFY AUTHENTICATION
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("Missing authorization header");
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing authorization" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error("Authentication failed:", authError?.message);
+      return new Response(
+        JSON.stringify({ success: false, error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Authenticated user:", user.id);
+
+    // 2. PARSE AND VALIDATE INPUT
     const { pdfBase64, jobDescription } = await req.json();
 
     if (!pdfBase64) {
-      throw new Error("PDF content is required");
+      return new Response(
+        JSON.stringify({ success: false, error: "PDF content is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate pdfBase64 type
+    if (typeof pdfBase64 !== 'string') {
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid PDF data format" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Extract and validate base64 content
+    let base64Data: string;
+    if (pdfBase64.startsWith('data:')) {
+      const parts = pdfBase64.split(',');
+      if (parts.length !== 2) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid data URL format" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // Validate MIME type
+      if (!parts[0].includes('application/pdf')) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Only PDF files are supported" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      base64Data = parts[1];
+    } else {
+      base64Data = pdfBase64;
+    }
+
+    // Validate base64 encoding
+    try {
+      atob(base64Data.substring(0, 100));
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid base64 encoding" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check size limit
+    if (base64Data.length > MAX_BASE64_LENGTH) {
+      return new Response(
+        JSON.stringify({ success: false, error: "PDF file too large. Maximum size is 10MB" }),
+        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate job description length
+    if (jobDescription && typeof jobDescription === 'string' && jobDescription.length > MAX_JOB_DESCRIPTION_LENGTH) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Job description too long. Maximum 5000 characters" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -40,12 +132,7 @@ serve(async (req) => {
       throw new Error("AI service not configured");
     }
 
-    console.log("Extracting PDF content using Lovable AI...");
-
-    // Remove data URL prefix if present
-    const base64Data = pdfBase64.includes(',') 
-      ? pdfBase64.split(',')[1] 
-      : pdfBase64;
+    console.log("Extracting PDF content using Lovable AI for user:", user.id);
 
     // Build the extraction prompt
     const extractionPrompt = `Analise este documento PDF de currículo e extraia TODAS as informações em formato JSON estruturado.
