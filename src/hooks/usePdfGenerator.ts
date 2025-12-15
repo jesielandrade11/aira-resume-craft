@@ -23,7 +23,7 @@ export function usePdfGenerator() {
     }
 
     setIsGenerating(true);
-    
+
     try {
       // Capture the element as canvas
       const canvas = await html2canvas(element, {
@@ -43,23 +43,25 @@ export function usePdfGenerator() {
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      // Calculate dimensions to fit A4
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 0;
 
-      pdf.addImage(
-        imgData,
-        'PNG',
-        imgX,
-        imgY,
-        imgWidth * ratio,
-        imgHeight * ratio
-      );
+      const pageHeight = pdfHeight;
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add subsequent pages
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
 
       // Generate blob
       const blob = pdf.output('blob');
@@ -73,7 +75,7 @@ export function usePdfGenerator() {
       // Cache the result
       const newCache = { blob, url, timestamp: new Date() };
       setPdfCache(newCache);
-      
+
       if (resumeHash) {
         lastResumeHashRef.current = resumeHash;
       }
@@ -93,7 +95,7 @@ export function usePdfGenerator() {
     resumeHash?: string
   ) => {
     const result = await generatePdf(element, resumeHash);
-    
+
     if (result) {
       const link = document.createElement('a');
       link.href = result.url;
@@ -103,7 +105,7 @@ export function usePdfGenerator() {
       document.body.removeChild(link);
       return true;
     }
-    
+
     return false;
   }, [generatePdf]);
 

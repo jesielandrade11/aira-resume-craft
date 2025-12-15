@@ -145,6 +145,7 @@ ${HR_EXPERT_KNOWLEDGE}
 4. NUNCA despeje toda a análise de uma vez - vá descobrindo aos poucos.
 5. NÃO use listas longas ou bullet points extensos.
 6. Seja como uma conversa de café, não uma palestra.
+7. OBJETIVO: Gerar o currículo em no máximo 5 interações. Na 5ª mensagem, DEVE oferecer para gerar o currículo.
 
 🧠 STATUS DE PENSAMENTO (Obrigatório):
 Sempre que estiver analisando ou pensando, use a tag [[STATUS: mensagem]] no início ou meio da resposta.
@@ -221,11 +222,63 @@ Tem mais alguma experiência ou certificação que você acha importante incluir
 
 Responda em português brasileiro. Seja calorosa mas profissional.`;
 
+const EDITING_PROMPT = `Você é a AIRA (Artificial Intelligence Resume Architect) no MODO EDIÇÃO.
+
+Você é uma especialista em currículos ajudando o usuário a REFINAR e MELHORAR um currículo existente.
+
+${HR_EXPERT_KNOWLEDGE}
+
+🎯 SEU OBJETIVO:
+1. Executar as alterações solicitadas pelo usuário IMEDIATAMENTE.
+2. Sugerir melhorias proativas baseadas nas melhores práticas.
+3. Manter o tom profissional mas encorajador.
+
+🛠️ COMO EXECUTAR MUDANÇAS:
+Sempre que o usuário pedir uma alteração (ex: "mude a cor", "reescreva o resumo", "adicione essa experiência"), você DEVE retornar um bloco JSON com a atualização.
+
+FORMATO OBRIGATÓRIO PARA MUDANÇAS:
+[[STATUS: Atualizando currículo...]]
+
+\`\`\`resume_update
+{
+  "action": "update",
+  "data": {
+    // Apenas os campos que mudaram
+    // Exemplo: "styles": { "primaryColor": "#FF0000" }
+  }
+}
+\`\`\`
+
+💡 TIPOS DE INTERAÇÃO NO MODO EDIÇÃO:
+
+1. ALTERAÇÃO DIRETA:
+Usuario: "Mude o layout para moderno e azul"
+AIRA: "Claro! Aplicando o layout moderno com tons de azul."
+[Bloco resume_update com styles]
+
+2. MELHORIA DE CONTEÚDO:
+Usuario: "Melhore meu resumo"
+AIRA: "Aqui está uma versão mais impactante do seu resumo, focando em resultados:"
+[Bloco resume_update com personalInfo.summary]
+
+3. DÚVIDA/CONSULTORIA:
+Usuario: "O que você acha desta experiência?"
+AIRA: [Análise breve] + "Sugiro reescrever assim para destacar seus resultados..."
+[Bloco resume_update opcional com a sugestão aplicada se for uma melhoria clara]
+
+🚫 O QUE NÃO FAZER:
+- Não diga "posso fazer isso" sem fazer. FAÇA AGORA.
+- Não peça permissão para mudanças triviais solicitadas (cores, correções).
+- Não gere JSON inválido.
+
+Responda em português brasileiro.
+`;
+
 const GENERATE_PROMPT = `VOCÊ É UM SISTEMA DE EXECUÇÃO DE JSON.
 
-REGRA ÚNICA: Toda resposta DEVE conter o bloco resume_update.
+REGRA ÚNICA: A resposta deve conter o bloco resume_update E uma explicação amigável.
 
-FORMATO EXATO (copie exatamente):
+FORMATO EXATO:
 
 [[STATUS: Aplicando...]]
 
@@ -233,7 +286,7 @@ FORMATO EXATO (copie exatamente):
 {"action":"update","data":{...campos aqui...}}
 \`\`\`
 
-Pronto!
+(Escreva aqui uma mensagem amigável explicando o que você fez)
 
 CAMPOS: personalInfo, experience, education, skills, languages, certifications, style
 
@@ -287,14 +340,24 @@ serve(async (req) => {
     }
 
     // Select system prompt based on mode
-    const systemPrompt = mode === 'generate' ? GENERATE_PROMPT : PLANNING_PROMPT;
-
     // Build context message
     let contextMessage = "";
 
     // CHECK FOR EMPTY PROFILE/RESUME
     const hasResume = resume && (resume.personalInfo?.fullName || (resume.experience && resume.experience.length > 0));
     const hasProfile = userProfile && (userProfile.fullName || (userProfile.experiences && userProfile.experiences.length > 0));
+
+    // Select system prompt based on mode
+    let systemPrompt = PLANNING_PROMPT;
+    if (mode === 'generate') {
+      systemPrompt = GENERATE_PROMPT;
+      console.log("Mode: GENERATE - Using STRICT JSON prompt");
+    } else if (hasResume) {
+      systemPrompt = EDITING_PROMPT;
+      console.log("Mode: EDITING - Resume detected, using INTERACTIVE EDIT prompt");
+    } else {
+      console.log("Mode: PLANNING - Initial interview prompt");
+    }
 
     if (!hasResume && !hasProfile && !linkedinData) {
       contextMessage += `\n\n⚠️ ATENÇÃO: O USUÁRIO NÃO TEM CURRÍCULO NEM PERFIL CADASTRADO.
@@ -351,11 +414,11 @@ serve(async (req) => {
           for (const attachment of msg.attachments) {
             if (attachment.type === 'image' && attachment.base64) {
               // Remove data:image/xxx;base64, prefix if present
-              const base64Data = attachment.base64.includes(',') 
-                ? attachment.base64.split(',')[1] 
+              const base64Data = attachment.base64.includes(',')
+                ? attachment.base64.split(',')[1]
                 : attachment.base64;
-              const mimeType = attachment.base64.includes(';') 
-                ? attachment.base64.split(';')[0].split(':')[1] 
+              const mimeType = attachment.base64.includes(';')
+                ? attachment.base64.split(';')[0].split(':')[1]
                 : 'image/jpeg';
 
               content.push({
@@ -375,9 +438,9 @@ serve(async (req) => {
           content.push({ type: "text", text: "[Mensagem sem conteúdo]" });
         }
 
-        return { 
-          role: msg.role === 'assistant' ? 'assistant' : 'user', 
-          content 
+        return {
+          role: msg.role === 'assistant' ? 'assistant' : 'user',
+          content
         };
       })
       .filter((msg: any) => {
@@ -409,7 +472,7 @@ serve(async (req) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-3-5-sonnet-20240620",
         max_tokens: 4096,
         temperature: mode === 'generate' ? 0.1 : 0.7, // Low temp for predictable JSON
         system: systemPrompt + contextMessage,
@@ -468,7 +531,7 @@ serve(async (req) => {
 
               try {
                 const parsed = JSON.parse(jsonStr);
-                
+
                 // Handle different Claude event types
                 if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
                   // Convert to our expected SSE format

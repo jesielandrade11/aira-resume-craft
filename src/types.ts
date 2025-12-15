@@ -47,28 +47,29 @@ export interface ResumeStyles {
   // Layout
   layout: 'classic' | 'modern' | 'creative' | 'minimal' | 'executive';
   columns: 1 | 2;
-  
+
   // Colors
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
   backgroundColor: string;
   textColor: string;
-  
+
   // Typography
   headingFont: string;
   bodyFont: string;
   headingSize: 'small' | 'medium' | 'large';
   bodySize: 'small' | 'medium' | 'large';
-  
+
   // Spacing
   sectionSpacing: 'compact' | 'normal' | 'spacious';
-  
+
   // Decorations
   showBorders: boolean;
   showIcons: boolean;
   headerStyle: 'simple' | 'banner' | 'sidebar' | 'centered';
   skillsStyle: 'tags' | 'bars' | 'dots' | 'simple';
+  sidebarPosition?: 'left' | 'right';
 }
 
 export interface ResumeData {
@@ -196,6 +197,7 @@ export const defaultStyles: ResumeStyles = {
   showIcons: true,
   headerStyle: 'simple',
   skillsStyle: 'tags',
+  sidebarPosition: 'left',
 };
 
 // Empty resume template

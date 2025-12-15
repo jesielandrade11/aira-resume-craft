@@ -10,6 +10,15 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface EditableTextProps {
   value: string;
@@ -20,6 +29,7 @@ interface EditableTextProps {
   as?: 'h1' | 'h2' | 'h3' | 'p' | 'span';
   multiline?: boolean;
   draggable?: boolean;
+  isDate?: boolean;
 }
 
 export function EditableText({
@@ -31,6 +41,7 @@ export function EditableText({
   as: Component = 'span',
   multiline = false,
   draggable = false,
+  isDate = false,
 }: EditableTextProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -55,7 +66,11 @@ export function EditableText({
 
   const handleClick = () => {
     if (!isDragging) {
-      setIsEditing(true);
+      if (multiline) {
+        setIsPopupOpen(true);
+      } else {
+        setIsEditing(true);
+      }
     }
   };
 
@@ -159,7 +174,8 @@ export function EditableText({
           className={cn(
             'bg-transparent border-b border-resume-accent focus:outline-none focus:border-resume-primary w-full',
             'transition-colors duration-200',
-            multiline && 'resize-none min-h-[60px] pr-8', // Added pr-8 for maximize button
+            multiline && 'resize-none min-h-[60px] pr-8',
+            isDate && 'pr-8',
             className
           )}
           style={style}
@@ -173,9 +189,10 @@ export function EditableText({
               variant="ghost"
               className="absolute right-0 top-0 h-6 w-6 text-muted-foreground hover:text-primary z-10"
               onClick={(e) => {
-                e.stopPropagation(); // Prevent blur
+                e.stopPropagation();
                 setIsPopupOpen(true);
               }}
+              onMouseDown={(e) => e.preventDefault()}
               title="Expandir editor"
             >
               <Maximize2 className="w-3 h-3" />
@@ -183,7 +200,7 @@ export function EditableText({
 
             <Dialog open={isPopupOpen} onOpenChange={(open) => {
               setIsPopupOpen(open);
-              if (!open) handleBlur(); // Save on close
+              if (!open) handleBlur();
             }}>
               <DialogContent className="sm:max-w-[725px] flex flex-col h-[80vh]">
                 <DialogHeader>
@@ -195,6 +212,7 @@ export function EditableText({
                     onChange={(e) => setEditValue(e.target.value)}
                     className="w-full h-full resize-none p-4 text-base leading-relaxed"
                     placeholder={placeholder}
+                    autoFocus
                   />
                 </div>
                 <DialogFooter>
@@ -203,6 +221,37 @@ export function EditableText({
               </DialogContent>
             </Dialog>
           </>
+        )}
+
+        {isDate && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-primary z-10"
+                title="Selecionar data"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <CalendarIcon className="w-3 h-3" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={undefined}
+                onSelect={(date) => {
+                  if (date) {
+                    const formatted = format(date, 'MMM yyyy', { locale: ptBR });
+                    setEditValue(formatted);
+                    onChange(formatted);
+                    setIsEditing(false);
+                  }
+                }}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         )}
       </div>
     );

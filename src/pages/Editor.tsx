@@ -128,11 +128,62 @@ export default function Editor() {
     return saved ? JSON.parse(saved) : emptyResume;
   });
 
+  // Pre-fill resume with profile data if it's new and empty
+  useEffect(() => {
+    if (isNew && userProfile && resume.personalInfo.fullName === '' && resume.skills.length === 0) {
+      console.log("Pre-filling resume from profile...");
+      setResume(prev => ({
+        ...prev,
+        personalInfo: {
+          ...prev.personalInfo,
+          fullName: userProfile.fullName || '',
+          email: userProfile.email || '',
+          phone: userProfile.phone || '',
+          location: userProfile.location || '',
+          linkedin: userProfile.linkedin || '',
+          website: userProfile.website || '',
+          summary: userProfile.bio || '',
+        },
+        skills: (userProfile.skills || []).map(skill => ({
+          id: crypto.randomUUID(),
+          name: skill,
+          level: 'Intermediário' // Default level
+        })),
+        experience: (userProfile.experiences || []).map(exp => ({
+          id: crypto.randomUUID(),
+          company: exp.company,
+          position: exp.position,
+          startDate: exp.startDate,
+          endDate: exp.endDate,
+          description: exp.description
+        })),
+        education: (userProfile.education || []).map(edu => ({
+          id: crypto.randomUUID(),
+          institution: edu.institution,
+          degree: edu.degree,
+          field: edu.field,
+          startDate: edu.startDate,
+          endDate: edu.endDate
+        })),
+        languages: (userProfile.languages || []).map(lang => ({
+          id: crypto.randomUUID(),
+          name: lang.name,
+          proficiency: lang.level
+        }))
+      }));
+    }
+  }, [isNew, userProfile, resume.personalInfo.fullName, resume.skills.length]);
+
   const [resumeTitle, setResumeTitle] = useState('Novo Currículo');
   const [currentResumeId, setCurrentResumeId] = useState<string | null>(resumeId);
   const [hasAutoSentPrompt, setHasAutoSentPrompt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  const [jobDescription, setJobDescription] = useState(() => {
+    if (initialJob) return decodeURIComponent(initialJob);
+    return localStorage.getItem(STORAGE_KEYS.jobDescription) || '';
+  });
 
   // Debounced resume for auto-save
   const [debouncedResume, setDebouncedResume] = useState(resume);
@@ -143,16 +194,64 @@ export default function Editor() {
     return () => clearTimeout(handler);
   }, [resume]);
 
+  // Auto-save Logic (Backend)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const autoSave = async () => {
+      // Don't auto-save if empty or just initialized
+      if (!resume.personalInfo.fullName && resume.experience.length === 0) return;
+      if (isSaving) return;
+
+      try {
+        let titleToSave = resumeTitle;
+
+        // If it's the first save of a new resume, set a smart title
+        if (!currentResumeId && titleToSave === 'Novo Currículo') {
+          if (initialJob) {
+            const decoded = decodeURIComponent(initialJob);
+            titleToSave = `Vaga: ${decoded.substring(0, 30)}...`;
+          } else if (templateId) {
+            const template = getTemplateById(templateId);
+            if (template) titleToSave = `Template: ${template.name}`;
+          }
+          setResumeTitle(titleToSave);
+        }
+
+        // Silent save for auto-updates
+        const id = await saveResume(debouncedResume, jobDescription, currentResumeId || undefined, titleToSave, { silent: true });
+
+        if (id) {
+          if (!currentResumeId) setCurrentResumeId(id);
+          setLastSaved(new Date());
+
+          // Sync to profile
+          if (userProfile) {
+            syncResumeToProfile(debouncedResume, userProfile, handleProfileUpdate);
+          }
+        }
+      } catch (e) {
+        console.error("Auto-save failed", e);
+      }
+    };
+
+    if (debouncedResume !== emptyResume) {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(autoSave, 1000);
+    }
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [debouncedResume, jobDescription, saveResume, currentResumeId, resumeTitle, userProfile, handleProfileUpdate]);
+
   const credits = {
     total: userProfile.credits,
     used: 0,
     remaining: hasUnlimited() ? 9999 : userProfile.credits,
   };
 
-  const [jobDescription, setJobDescription] = useState(() => {
-    if (initialJob) return decodeURIComponent(initialJob);
-    return localStorage.getItem(STORAGE_KEYS.jobDescription) || '';
-  });
+
 
   const [zoom, setZoom] = useState(1);
   const [showBuyCreditsModal, setShowBuyCreditsModal] = useState(false);
@@ -402,7 +501,7 @@ export default function Editor() {
       if (fullPrompt) {
         setHasAutoSentPrompt(true);
         setTimeout(() => {
-          const useMode = forceGenerateMode || attachments.length > 0 ? 'generate' : (isPlanning ? 'planning' : 'generate');
+          const useMode = forceGenerateMode || attachments.length > 0 ? 'planning' : (isPlanning ? 'planning' : 'planning');
           sendMessage(fullPrompt, attachments.length > 0 ? attachments : undefined, useMode);
         }, 500);
       }
@@ -523,7 +622,16 @@ export default function Editor() {
           </div>
 
           {/* Mobile Actions */}
-          <div className="flex sm:hidden items-center gap-2">
+          <div className="flex sm:hidden items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleManualSave}
+              disabled={isSaving}
+              className={isSaving ? "animate-pulse text-muted-foreground" : lastSaved ? "text-green-600" : ""}
+            >
+              {isSaving ? <span className="text-[10px] uppercase font-bold">...</span> : lastSaved ? <Check className="w-4 h-4" /> : <Save className="w-5 h-5" />}
+            </Button>
             <CreditsDisplay credits={credits} onUpgrade={() => setShowBuyCreditsModal(true)} />
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild><Button variant="outline" size="icon"><Menu className="w-4 h-4" /></Button></SheetTrigger>
@@ -569,7 +677,7 @@ export default function Editor() {
                 mode={mode}
                 onModeChange={setMode}
                 onSendMessage={sendMessage}
-                disabled={noCredits}
+                disabled={false}
                 jobDescription={savedJobDescription}
                 onResumeUpdate={handleResumeUpdate}
                 onUndo={undo}

@@ -173,7 +173,15 @@ export default function Profile() {
             )}
             <span className="hidden xs:inline">Salvar</span>
           </Button>
-          <Button variant="ghost" size="icon" onClick={async () => { await signOut(); navigate('/'); }} title="Sair">
+          <Button variant="ghost" size="icon" onClick={async () => {
+            try {
+              await signOut();
+              navigate('/');
+            } catch (error) {
+              console.error("Logout failed", error);
+              navigate('/'); // Force navigate anyway
+            }
+          }} title="Sair">
             <LogOut className="w-4 h-4" />
           </Button>
         </div>
@@ -265,17 +273,7 @@ export default function Profile() {
                   </div>
 
                   <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="linkedin">LinkedIn</Label>
-                    <div className="relative">
-                      <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="linkedin"
-                        placeholder="https://linkedin.com/in/seu-perfil"
-                        value={formData.linkedin}
-                        onChange={(e) => setFormData({ ...formData, linkedin: e.target.value })}
-                        className="pl-10"
-                      />
-                    </div>
+                    {/* LinkedIn field removed as requested */}
                   </div>
 
                   <div className="space-y-2 sm:col-span-2">

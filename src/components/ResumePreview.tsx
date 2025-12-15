@@ -216,7 +216,7 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
             <EditableText value={exp.position} onChange={(v) => updateExperience(i, 'position', v)} className="font-bold text-md" style={{ color: styles.textColor }} />
             <div className="flex justify-between text-sm opacity-80 mb-1" style={{ color: styles.secondaryColor }}>
               <EditableText value={exp.company} onChange={(v) => updateExperience(i, 'company', v)} />
-              <div className="flex gap-1"><EditableText value={exp.startDate} onChange={(v) => updateExperience(i, 'startDate', v)} /> - <EditableText value={exp.endDate} onChange={(v) => updateExperience(i, 'endDate', v)} /></div>
+              <div className="flex gap-1"><EditableText value={exp.startDate} onChange={(v) => updateExperience(i, 'startDate', v)} isDate /> - <EditableText value={exp.endDate} onChange={(v) => updateExperience(i, 'endDate', v)} isDate /></div>
             </div>
             <EditableText value={exp.description} onChange={(v) => updateExperience(i, 'description', v)} multiline className={cn(getBodySize(), 'whitespace-pre-wrap')} />
           </div>
@@ -239,7 +239,7 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
             <EditableText value={edu.institution} onChange={(v) => updateEducation(i, 'institution', v)} className="font-bold" />
             <div className="flex justify-between text-sm opacity-80">
               <div className="flex gap-1"><EditableText value={edu.degree} onChange={(v) => updateEducation(i, 'degree', v)} /> em <EditableText value={edu.field} onChange={(v) => updateEducation(i, 'field', v)} /></div>
-              <div className="flex gap-1 text-xs"><EditableText value={edu.startDate} onChange={(v) => updateEducation(i, 'startDate', v)} /> - <EditableText value={edu.endDate} onChange={(v) => updateEducation(i, 'endDate', v)} /></div>
+              <div className="flex gap-1 text-xs"><EditableText value={edu.startDate} onChange={(v) => updateEducation(i, 'startDate', v)} isDate /> - <EditableText value={edu.endDate} onChange={(v) => updateEducation(i, 'endDate', v)} isDate /></div>
             </div>
           </div>
         ))}
@@ -275,7 +275,7 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
 
   // 1. Sidebar Layout (e.g. Lizzie Creative, Juliana)
   if (styles.columns === 2) {
-    const isRightSidebar = styles.headerStyle === 'sidebar' && styles.layout === 'creative'; // Heuristic for Lizzie
+    const isRightSidebar = styles.sidebarPosition === 'right';
     const sidebarBg = isRightSidebar ? styles.primaryColor : `${styles.primaryColor}15`;
     const mainBg = styles.backgroundColor;
 

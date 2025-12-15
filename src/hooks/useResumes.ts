@@ -35,7 +35,7 @@ export function useResumes() {
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      
+
       setResumes((data || []).map(r => ({
         ...r,
         data: r.data as unknown as ResumeData
@@ -56,7 +56,8 @@ export function useResumes() {
     resume: ResumeData,
     jobDescription: string,
     id?: string,
-    title?: string
+    title?: string,
+    options?: { silent?: boolean }
   ): Promise<string | null> => {
     if (!user) {
       toast.error('Você precisa estar logado para salvar');
@@ -65,7 +66,7 @@ export function useResumes() {
 
     try {
       const resumeTitle = title || resume.personalInfo?.fullName || 'Novo Currículo';
-      
+
       if (id) {
         // Update existing
         const { error } = await supabase
@@ -78,7 +79,7 @@ export function useResumes() {
           .eq('id', id);
 
         if (error) throw error;
-        toast.success('Currículo salvo!');
+        if (!options?.silent) toast.success('Currículo salvo!');
         await fetchResumes();
         return id;
       } else {
@@ -95,13 +96,13 @@ export function useResumes() {
           .single();
 
         if (error) throw error;
-        toast.success('Currículo salvo!');
+        if (!options?.silent) toast.success('Currículo salvo!');
         await fetchResumes();
         return data?.id || null;
       }
     } catch (error) {
       console.error('Error saving resume:', error);
-      toast.error('Erro ao salvar currículo');
+      if (!options?.silent) toast.error('Erro ao salvar currículo');
       return null;
     }
   }, [user, fetchResumes]);

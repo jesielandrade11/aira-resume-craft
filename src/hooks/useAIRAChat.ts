@@ -32,7 +32,7 @@ export function useAIRAChat({
   // Use external messages if provided, otherwise use local state
   const [internalMessages, setInternalMessages] = useState<ChatMessage[]>([]);
   const messages = externalMessages ?? internalMessages;
-  
+
   const setMessages = useCallback((updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
     if (onMessagesChange) {
       const newMessages = typeof updater === 'function' ? updater(messages) : updater;
@@ -269,7 +269,7 @@ export function useAIRAChat({
     setIsLoading(true);
     setThinkingStatus("Processando..."); // Initial processing status
 
-    const creditCost = currentMode === 'planning' ? 0.2 : 1;
+    const creditCost = currentMode === 'planning' ? 0 : 1;
     onCreditsUsed(creditCost);
 
     let assistantContent = '';
