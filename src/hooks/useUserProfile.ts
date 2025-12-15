@@ -153,50 +153,58 @@ export function useUserProfile() {
     return new Date(profile.unlimitedUntil) > new Date();
   }, [profile.isUnlimited, profile.unlimitedUntil]);
 
-  // Use credits - returns true if successful
+  // Use credits - returns true if successful (server-side validation)
   const useCredits = useCallback(async (amount: number): Promise<boolean> => {
     if (!user) return false;
     
-    // If unlimited, always allow
-    if (hasUnlimited()) return true;
-    
-    // Check if enough credits
-    if (profile.credits < amount) return false;
-    
-    const newCredits = Math.floor(profile.credits - amount);
-    
-    // Optimistic update
-    setProfile(prev => ({ ...prev, credits: newCredits }));
-    
-    // Update database
     try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ credits: newCredits })
-        .eq('user_id', user.id);
-        
-      if (error) throw error;
-      return true;
+      const { data, error } = await supabase.functions.invoke('use-credits', {
+        body: { action: 'use', amount },
+      });
+
+      if (error) {
+        console.error('Error using credits:', error);
+        return false;
+      }
+
+      if (data?.error) {
+        console.error('Credit operation failed:', data.error);
+        return false;
+      }
+
+      // Update local state with server response
+      if (data?.credits !== undefined) {
+        setProfile(prev => ({ ...prev, credits: data.credits }));
+      }
+
+      return data?.success === true;
     } catch (error) {
-      // Rollback on error
-      setProfile(prev => ({ ...prev, credits: prev.credits + amount }));
-      console.error('Error using credits:', error);
+      console.error('Error calling use-credits function:', error);
       return false;
     }
-  }, [user, profile.credits, hasUnlimited]);
+  }, [user]);
 
-  // Add credits (after purchase)
-  const addCredits = useCallback(async (amount: number) => {
+  // Refresh credits from server (after purchase, credits are added server-side)
+  const refreshCredits = useCallback(async () => {
     if (!user) return;
     
-    const newCredits = profile.credits + amount;
-    setProfile(prev => ({ ...prev, credits: newCredits }));
-    
-    await supabase
-      .from('user_profiles')
-      .update({ credits: newCredits })
-      .eq('user_id', user.id);
-  }, [user, profile.credits]);
+    try {
+      const { data, error } = await supabase.functions.invoke('use-credits', {
+        body: { action: 'check' },
+      });
+
+      if (!error && data?.credits !== undefined) {
+        setProfile(prev => ({ 
+          ...prev, 
+          credits: data.credits,
+          isUnlimited: data.hasUnlimited || false,
+          unlimitedUntil: data.unlimitedUntil || null,
+        }));
+      }
+    } catch (error) {
+      console.error('Error refreshing credits:', error);
+    }
+  }, [user]);
 
   return {
     profile,
@@ -205,7 +213,7 @@ export function useUserProfile() {
     updateProfile,
     fetchProfile,
     useCredits,
-    addCredits,
+    refreshCredits,
     hasUnlimited,
   };
 }

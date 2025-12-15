@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const getAllowedOrigin = (requestOrigin: string | null): string => {
   const allowedOrigins = [
@@ -18,6 +19,28 @@ const getCorsHeaders = (requestOrigin: string | null) => ({
   "Access-Control-Allow-Origin": getAllowedOrigin(requestOrigin),
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 });
+
+// Authentication helper function
+async function authenticateUser(req: Request): Promise<{ user: any; error?: string }> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return { user: null, error: "Missing authorization header" };
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) {
+    return { user: null, error: "Invalid or expired token" };
+  }
+
+  return { user };
+}
 
 // Conhecimento especializado de RH integrado aos prompts
 const HR_EXPERT_KNOWLEDGE = `
@@ -231,6 +254,17 @@ serve(async (req) => {
   }
 
   try {
+    // Authenticate user first
+    const { user, error: authError } = await authenticateUser(req);
+    if (authError || !user) {
+      console.error("Authentication failed:", authError);
+      return new Response(
+        JSON.stringify({ error: authError || "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    console.log("Authenticated user:", user.id);
+
     const { messages, resume, userProfile, jobDescription, attachments, mode = 'planning' } = await req.json();
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
