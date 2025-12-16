@@ -291,10 +291,21 @@ RETORNE APENAS um JSON válido neste formato exato (sem texto adicional, sem mar
     });
 
   } catch (e) {
-    console.error("PDF extraction error:", e);
+    const errorMessage = e instanceof Error ? e.message : "Unknown error";
+    console.error("PDF extraction error:", errorMessage);
+    
+    // Map known safe errors, return generic message for unexpected errors
+    const safeErrors: Record<string, string> = {
+      "AI service not configured": "Serviço temporariamente indisponível",
+      "Não foi possível extrair o conteúdo do PDF": "Não foi possível extrair o conteúdo do PDF",
+      "Não foi possível processar a resposta do PDF": "Não foi possível processar a resposta do PDF",
+      "Não foi possível extrair dados estruturados do PDF": "Não foi possível extrair dados estruturados do PDF",
+    };
+    const safeMessage = safeErrors[errorMessage] || "Erro ao processar PDF";
+    
     return new Response(JSON.stringify({ 
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao processar PDF",
+      error: safeMessage,
       needsManualInput: false
     }), {
       status: 200,

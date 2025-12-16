@@ -123,7 +123,17 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error creating checkout:", errorMessage);
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    
+    // Map known safe errors, return generic message for unexpected errors
+    const safeErrors: Record<string, string> = {
+      "Missing authorization header": "Não autorizado",
+      "User not authenticated": "Usuário não autenticado",
+      "User email not available": "Email do usuário não disponível",
+      "Invalid package selected": "Pacote inválido selecionado",
+    };
+    const safeMessage = safeErrors[errorMessage] || "Erro ao criar sessão de pagamento";
+    
+    return new Response(JSON.stringify({ error: safeMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
