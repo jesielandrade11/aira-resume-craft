@@ -1,11 +1,9 @@
 import { ResumeData, ResumeExperience, ResumeEducation, ResumeSkill, ResumeStyles, defaultStyles } from '@/types';
 import { EditableText } from './EditableText';
-import { Mail, Phone, MapPin, Linkedin, Globe, Calendar, Plus, Trash2 } from 'lucide-react';
+import { Mail, Phone, MapPin, Linkedin, Globe, Plus, Trash2, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { useState } from 'react';
-import DOMPurify from 'dompurify';
-import { FileText } from 'lucide-react';
 
 interface ResumePreviewProps {
   resume: ResumeData;
