@@ -600,8 +600,18 @@ serve(async (req) => {
       },
     });
   } catch (error) {
-    console.error("Error in aira-chat function:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error in aira-chat function:", errorMessage);
+    
+    // Map known safe errors, return generic message for unexpected errors
+    const safeErrors: Record<string, string> = {
+      "ANTHROPIC_API_KEY is not configured": "Serviço temporariamente indisponível",
+      "Missing authorization header": "Não autorizado",
+      "Invalid or expired token": "Sessão expirada, faça login novamente",
+    };
+    const safeMessage = safeErrors[errorMessage] || "Erro ao processar solicitação";
+    
+    return new Response(JSON.stringify({ error: safeMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

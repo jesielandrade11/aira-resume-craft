@@ -126,7 +126,17 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Payment processing error:", errorMessage);
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    
+    // Map known safe errors, return generic message for unexpected errors
+    const safeErrors: Record<string, string> = {
+      "Missing sessionId": "Sessão de pagamento inválida",
+      "Payment not verified": "Pagamento não verificado",
+      "Invalid package": "Pacote inválido",
+      "User not found via auth context or metadata": "Usuário não encontrado",
+    };
+    const safeMessage = safeErrors[errorMessage] || "Erro ao processar pagamento";
+    
+    return new Response(JSON.stringify({ error: safeMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
     });

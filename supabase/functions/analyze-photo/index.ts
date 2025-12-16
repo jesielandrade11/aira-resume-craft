@@ -143,8 +143,21 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("Photo analysis error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }), {
+    const errorMessage = e instanceof Error ? e.message : "Unknown error";
+    console.error("Photo analysis error:", errorMessage);
+    
+    // Map known safe errors, return generic message for unexpected errors
+    const safeErrors: Record<string, string> = {
+      "LOVABLE_API_KEY is not configured": "Serviço temporariamente indisponível",
+      "Imagem não fornecida": "Imagem não fornecida",
+      "Limite de requisições excedido. Tente novamente em alguns minutos.": "Limite de requisições excedido. Tente novamente em alguns minutos.",
+      "Créditos de IA insuficientes.": "Créditos de IA insuficientes.",
+      "Erro ao analisar imagem": "Erro ao analisar imagem",
+      "Não foi possível analisar a imagem": "Não foi possível analisar a imagem",
+    };
+    const safeMessage = safeErrors[errorMessage] || "Erro ao analisar foto";
+    
+    return new Response(JSON.stringify({ error: safeMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
