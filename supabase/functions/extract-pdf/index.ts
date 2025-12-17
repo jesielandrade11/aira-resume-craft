@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import pdf from "npm:pdf-parse@1.1.1";
+import * as pdfjs from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/+esm";
 
 const getAllowedOrigin = (requestOrigin: string | null): string => {
   const allowedOrigins = [
@@ -101,12 +101,31 @@ serve(async (req) => {
     }
 
     // 3. EXTRACT TEXT FROM PDF
-    console.log("Extracting text from PDF via pdf-parse...");
+    console.log("Extracting text from PDF via pdfjs-dist...");
     let extractedText = "";
     try {
-      const pdfBuffer = Buffer.from(base64Data, 'base64');
-      const data = await pdf(pdfBuffer);
-      extractedText = data.text;
+      // Decode base64 to Uint8Array
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      // Load PDF document
+      const loadingTask = pdfjs.getDocument({ data: bytes });
+      const pdfDoc = await loadingTask.promise;
+      
+      // Extract text from all pages
+      const textParts: string[] = [];
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: { str?: string }) => item.str || '')
+          .join(' ');
+        textParts.push(pageText);
+      }
+      extractedText = textParts.join('\n\n');
 
       if (!extractedText || extractedText.trim().length < 50) {
         throw new Error("PDF text extraction resulted in empty content (or scanned PDF without OCR).");
