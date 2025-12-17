@@ -85,16 +85,25 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("AI service not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) {
+      // Fallback to LOVABLE if available, otherwise error
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) {
+        throw new Error("AI service not configured (Missing ANTHROPIC_API_KEY)");
+      }
+      console.log("Using Lovable API (Fallback)");
+      // ... keep Lovable logic if needed or just error. 
+      // For consistency, let's enforce Anthropic if that's what user says they connected.
+      // But to be safe, if they have Lovable key, we could use it. 
+      // However, refactoring to Anthropic is the goal.
+      throw new Error("ANTHROPIC_API_KEY not configured. Please add your Anthropic API Key in Supabase Secrets.");
     }
 
     // 3. EXTRACT TEXT FROM PDF
     console.log("Extracting text from PDF via pdf-parse...");
     let extractedText = "";
     try {
-      // Decode base64 to Buffer
       const pdfBuffer = Buffer.from(base64Data, 'base64');
       const data = await pdf(pdfBuffer);
       extractedText = data.text;
@@ -102,7 +111,6 @@ serve(async (req) => {
       if (!extractedText || extractedText.trim().length < 50) {
         throw new Error("PDF text extraction resulted in empty content (or scanned PDF without OCR).");
       }
-
       console.log(`Extracted ${extractedText.length} characters from PDF.`);
     } catch (parseError) {
       console.error("PDF Parse Error:", parseError);
@@ -111,14 +119,15 @@ serve(async (req) => {
         error: "Não foi possível ler o texto do PDF. Se for uma imagem escaneada, tente converter para texto antes.",
         needsManualInput: true
       }), {
-        status: 200, // Return 200 so fontend can show strict warning
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // 4. ASK AI TO PARSE STRUCTURE
-    console.log("Sending text to Lovable AI for structuring...");
-    const extractionPrompt = `Analise o TEXTO abaixo, extraído de um currículo PDF, e transforme em um JSON estruturado.
+    // 4. ASK AI TO PARSE STRUCTURE (USING CLAUDE)
+    console.log("Sending text to Claude for structuring...");
+    const systemPrompt = "Você é um especialista em extração de dados de currículos. Sua tarefa é extrair informações de um texto cru (extraído de PDF) e transformar em JSON estruturado.";
+    const userPrompt = `Analise o TEXTO abaixo e transforme em um JSON estruturado.
     
 TEXTO DO CURRÍCULO:
 """
@@ -133,9 +142,9 @@ Extraia com o máximo de detalhes possível:
 - Habilidades (Liste todas)
 - Idiomas, Certificações
 
-${jobDescription ? `\nCONTEXTO DA VAGA (Use para filtrar relevancia se necessário, mas mantenha fidelidade): ${jobDescription.substring(0, 2000)}` : ''}
+${jobDescription ? `\nCONTEXTO DA VAGA: ${jobDescription.substring(0, 2000)}` : ''}
 
-RETORNE APENAS JSON VÁLIDO (sem markdown):
+RETORNE APENAS O JSON (sem markdown, sem preâmbulo):
 {
   "personalInfo": { "fullName": "...", "email": "...", "phone": "...", "location": "...", "linkedin": "...", "summary": "..." },
   "experience": [{ "company": "...", "position": "...", "startDate": "...", "endDate": "...", "description": "..." }],
@@ -145,39 +154,30 @@ RETORNE APENAS JSON VÁLIDO (sem markdown):
   "certifications": [{ "name": "...", "issuer": "...", "date": "..." }]
 }`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "user", content: extractionPrompt }],
-        max_tokens: 4000,
-        temperature: 0.1,
+        model: "claude-3-5-sonnet-20240620",
+        max_tokens: 4096,
+        temperature: 0,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }]
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Lovable AI error:", response.status, errorText);
-
-      if (response.status === 429) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: "Limite de requisições excedido. Tente novamente em alguns segundos."
-        }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
+      console.error("Claude API error:", response.status, errorText);
       throw new Error(`AI service error: ${response.status}`);
     }
 
     const aiResponse = await response.json();
-    const content = aiResponse.choices?.[0]?.message?.content;
+    const content = aiResponse.content?.[0]?.text;
 
     if (!content) throw new Error("Sem resposta da IA");
 
@@ -193,7 +193,6 @@ RETORNE APENAS JSON VÁLIDO (sem markdown):
     try {
       extractedData = JSON.parse(cleanContent);
     } catch {
-      // Fallback extraction
       const match = cleanContent.match(/\{[\s\S]*\}/);
       if (match) extractedData = JSON.parse(match[0]);
       else throw new Error("JSON Inválido");

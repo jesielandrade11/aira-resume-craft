@@ -311,8 +311,8 @@ serve(async (req) => {
     }
 
     if (jobDescription) {
-      contextMessage += `\n\n📋 DESCRIÇÃO DA VAGA (ANALISE E EXTRAIA PALAVRAS-CHAVE):\n${jobDescription}\n`;
-      contextMessage += `\n💡 INSTRUÇÕES: Identifique os requisitos técnicos, competências comportamentais e palavras-chave desta vaga para otimizar o currículo.\n`;
+      contextMessage += `\n\n📋 DESCRIÇÃO DA VAGA (ANALISE E EXTRAIA PALAVRAS-CHAVE):\n${jobDescription.substring(0, 6000)}\n${jobDescription.length > 6000 ? '[...truncado]' : ''}\n`;
+      contextMessage += `\n💡 INSTRUÇÕES: Identifique os requisitos técnicos, competências comportamentais e palavras-chave.\n`;
     }
 
     if (userProfile && userProfile.fullName) {
@@ -325,7 +325,14 @@ serve(async (req) => {
       if (resumeForContext.personalInfo) {
         resumeForContext.personalInfo = { ...resumeForContext.personalInfo, photo: undefined };
       }
-      contextMessage += `\n\n📄 CURRÍCULO ATUAL:\n${JSON.stringify(resumeForContext, null, 2)}\n`;
+
+      let resumeStr = JSON.stringify(resumeForContext, null, 2);
+      if (resumeStr.length > 15000) {
+        console.log("Resume too large, truncating...");
+        resumeStr = resumeStr.substring(0, 15000) + "\n...[truncado para caber no limite]";
+      }
+
+      contextMessage += `\n\n📄 CURRÍCULO ATUAL:\n${resumeStr}\n`;
     }
 
     // Transform messages to Claude format - FILTER OUT EMPTY MESSAGES
