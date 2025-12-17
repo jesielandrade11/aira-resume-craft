@@ -355,7 +355,12 @@ export function useAIRAChat({
         });
 
         if (!resp.ok) {
-          throw new Error('Erro na comunicação com a IA');
+          try {
+            const errorData = await resp.json();
+            throw new Error(errorData.error || `Erro ${resp.status}: ${resp.statusText}`);
+          } catch (e) {
+            throw new Error(`Erro na comunicação com a IA: ${resp.status}`);
+          }
         }
 
         if (!resp.body) throw new Error('Sem resposta');
@@ -430,7 +435,7 @@ export function useAIRAChat({
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: 'Desculpe, tive um problema de conexão. Tente novamente.',
+        content: `⚠️ Erro: ${lastError?.message || 'Problema de conexão.'}. Tente novamente.`,
         timestamp: new Date(),
       }]);
     }
