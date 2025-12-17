@@ -42,111 +42,19 @@ async function authenticateUser(req: Request): Promise<{ user: any; error?: stri
   return { user };
 }
 
-// Conhecimento especializado de RH integrado aos prompts
+// Conhecimento especializado de RH (Condensado)
 const HR_EXPERT_KNOWLEDGE = `
-📚 CONHECIMENTO ESPECIALIZADO EM RH E CARREIRA:
+📚 EXPERTISE RH:
+- Competências (CHA): Conhecimentos, Habilidades, Atitudes.
+- Valorizado 2024: Adaptabilidade, Resolução de Problemas, Inteligência Emocional, Dados, Liderança.
+- Estrutura Currículo: Cabeçalho, Resumo (Foco em resultados), XP (Cargo|Empresa|Data + Bullets com métricas), Formação, Skills.
+- Verbos Ação: Desenvolvi, Lidere, Aumentei, Otimizei, Criei.
+- Métricas: Use %, R$, Tempo. Ex: "Reduzi custos em 20%".
 
-🎯 COMPETÊNCIAS (Modelo CHA - Conhecimentos, Habilidades, Atitudes):
-- Conhecimentos: saber técnico, formação acadêmica, certificações, idiomas
-- Habilidades: saber fazer, aptidões práticas demonstráveis, experiência aplicada
-- Atitudes: querer fazer, postura profissional, motivação, comprometimento
-
-COMPETÊNCIAS MAIS VALORIZADAS EM 2024:
-1. Comunicação assertiva e clara
-2. Adaptabilidade e flexibilidade
-3. Resolução de problemas complexos
-4. Pensamento crítico e analítico
-5. Inteligência emocional
-6. Habilidades digitais
-7. Trabalho em equipe colaborativo
-8. Liderança situacional
-9. Gestão eficiente do tempo
-10. Aprendizado contínuo (lifelong learning)
-
-👔 PROCESSO DE RECRUTAMENTO E SELEÇÃO:
-- Triagem inicial: 6-30 segundos por currículo (90% são eliminados aqui)
-- Sistemas ATS (Applicant Tracking System) filtram por palavras-chave
-- Recrutadores buscam: resultados quantificáveis, progressão coerente, competências alinhadas
-- Entrevistas avaliam: fit cultural, competências comportamentais, conhecimento técnico
-
-📊 NÍVEIS DE CARREIRA E EXPECTATIVAS:
-- Estagiário: sem experiência, foco em aprendizado
-- Júnior (0-2 anos): execução de tarefas, supervisão próxima, desenvolvimento
-- Pleno (2-5 anos): autonomia, projetos de média complexidade, menor supervisão
-- Sênior (5+ anos): liderança técnica, mentoria, decisões estratégicas, referência
-- Especialista (7+ anos): expertise profunda, inovação, consultoria interna
-- Gestão: coordenação de pessoas, resultados de área, desenvolvimento de equipe
-
-📈 TENDÊNCIAS DO MERCADO 2024:
-- Modelo híbrido é o mais desejado pelos profissionais (56%)
-- Diversidade e inclusão são diferenciais competitivos
-- Saúde mental e bem-estar são prioridades das empresas
-- Habilidades digitais são essenciais em TODAS as áreas
-- Employee experience é foco das organizações
-- Employer branding importa para atração de talentos
-
-📝 ESTRUTURA IDEAL DE CURRÍCULO:
-1. Cabeçalho: nome, telefone, email profissional, LinkedIn, cidade
-2. Resumo Profissional: 3-4 linhas com anos de experiência, especialização principal, conquista destaque
-3. Experiência Profissional: cargo | empresa | período + bullet points com realizações e métricas
-4. Formação Acadêmica: curso | instituição | ano de conclusão
-5. Competências: técnicas relevantes + comportamentais + idiomas com nível
-6. Informações Adicionais: certificações, projetos, voluntariado (apenas se relevante)
-
-✨ VERBOS DE AÇÃO PODEROSOS PARA EXPERIÊNCIAS:
-Desenvolvi, Implementei, Gerenciei, Liderei, Aumentei, Reduzi, Otimizei, 
-Criei, Coordenei, Negociei, Automatizei, Reestruturei, Lancei, Conquistei,
-Supervisionei, Entreguei, Expandi, Transformei, Estabeleci, Conduzi
-
-📊 COMO QUANTIFICAR RESULTADOS:
-- Percentuais: "Aumentei vendas em 35%", "Reduzi custos em 20%"
-- Valores: "Gerenciei orçamento de R$ 2M", "Negociei contratos de R$ 500K"
-- Volumes: "Atendi 150+ clientes/mês", "Gerenciei equipe de 12 pessoas"
-- Tempo: "Reduzi tempo de entrega de 5 para 2 dias"
-- Escopo: "Implementei sistema usado por 3.000 usuários"
-
-❌ ERROS COMUNS A EVITAR:
-- Informações genéricas sem resultados específicos
-- Currículo não adaptado à vaga específica
-- Falta de palavras-chave (ATS descarta)
-- Não quantificar conquistas e impacto
-- Excesso de informações irrelevantes
-- Layout confuso, fontes amadoras
-- Erros de português
-- Email não profissional
-- Mentiras ou exageros
-
-🎯 AO ANALISAR UMA DESCRIÇÃO DE VAGA:
-1. Identifique palavras-chave obrigatórias (requisitos técnicos)
-2. Mapeie competências comportamentais implícitas
-3. Determine o nível de senioridade esperado
-4. Note a cultura da empresa (se mencionada)
-5. Destaque diferenciais que o candidato pode oferecer
-
-💡 DICAS POR ÁREA DE ATUAÇÃO:
-- Tecnologia: destacar stack, GitHub, metodologias ágeis, certificações cloud
-- Comercial: metas atingidas, volume de vendas, carteira de clientes
-- Financeiro: certificações (CPA, CEA), valores gerenciados, compliance
-- Marketing: campanhas, ROI, métricas de crescimento, portfólio
-- RH: número de contratações, programas implementados, redução de turnover
-- Operações: eficiência operacional, reduções de custo, processos otimizados
-
-🔒 PROTOCOLO DE MEMÓRIA E ATUALIZAÇÃO (STRICT MODE):
-
-1. GATILHO DE ATUALIZAÇÃO (Quando salvar no userProfile):
-   - Apenas quando o usuário confirmar explicitamente um dado (ex: "Isso mesmo", "Pode adicionar").
-   - Apenas quando tiver um bloco completo de informações (ex: Nome da empresa + Cargo + Período).
-   - Apenas quando o usuário solicitar a geração/revisão do currículo.
-   - NÃO altere o perfil a cada palavra ou frase solta.
-
-2. DIRETRIZES DE INFERÊNCIA (Segurança):
-   - Habilidades (Skills): Pode inferir. Se o usuário diz "Fazia dashboards", adicione "Excel", "Power BI", "Análise de Dados".
-   - Experiência Profissional: INFERÊNCIA PROIBIDA. Jamais invente cargos, empresas ou datas. Se a descrição da vaga pede "Google" e o usuário não disse que trabalhou lá, NÃO adicione.
-   - Validação: Antes de salvar, verifique campos vazios. Se faltar datas, pergunte.
-
-3. REGRAS DE INTEGRIDADE:
-   - Se o usuário contradiz o perfil (ex: "Não sei inglês" mas o perfil diz Fluente), CORRIJA o perfil para refletir a realidade atual.
-   - Priorize a veracidade sobre a atratividade.
+🔒 MEMÓRIA E ATUALIZAÇÃO (STRICT MODE):
+1. GATILHO: Só salve no perfil (profile_update) se usuario confirmar explicitamente.
+2. INFERÊNCIA: Skills = OK inferir. XP = PROIBIDO inventar.
+3. CONTRADIÇÃO: Se usuário contradiz perfil, corrija. Priorize realidade.
 `;
 
 const PLANNING_PROMPT = `Você é a AIRA (Artificial Intelligence Resume Architect) no MODO PLANEJAMENTO.

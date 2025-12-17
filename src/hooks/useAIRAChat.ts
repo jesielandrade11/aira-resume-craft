@@ -321,14 +321,22 @@ export function useAIRAChat({
           messageContent = `[Respondendo à mensagem: "${replyTo.content}"]\n\n${content}`;
         }
 
-        // Limit to last 10 messages for performance
+        // Limit to last 10 messages for performance and strip base64 from history
         const apiMessages = [...messages, { ...userMessage, content: messageContent }]
           .slice(-10)
-          .map(msg => ({
-            role: msg.role,
-            content: msg.content,
-            attachments: msg.attachments,
-          }));
+          .map((msg, index, arr) => {
+            const isLastMessage = index === arr.length - 1;
+            return {
+              role: msg.role,
+              content: msg.content,
+              attachments: msg.attachments?.map(att => ({
+                ...att,
+                // Only send base64 for the current message (the one being processed)
+                // For history, keep metadata but remove heavy base64 to avoid 413/Timeout
+                base64: isLastMessage ? att.base64 : undefined
+              })),
+            };
+          });
 
         const resp = await fetch(CHAT_URL, {
           method: 'POST',
