@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import pdf from "npm:pdf-parse@1.1.1";
 
 const getAllowedOrigin = (requestOrigin: string | null): string => {
   const allowedOrigins = [
@@ -8,7 +9,7 @@ const getAllowedOrigin = (requestOrigin: string | null): string => {
     "http://localhost:5173",
     "http://localhost:3000",
   ].filter(Boolean);
-  
+
   if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
     return requestOrigin;
   }
@@ -21,8 +22,7 @@ const getCorsHeaders = (requestOrigin: string | null) => ({
 });
 
 // Input validation constants
-const MAX_BASE64_LENGTH = 13 * 1024 * 1024; // ~10MB decoded
-const MAX_JOB_DESCRIPTION_LENGTH = 5000;
+const MAX_BASE64_LENGTH = 13 * 1024 * 1024;
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
@@ -58,8 +58,6 @@ serve(async (req) => {
       );
     }
 
-    console.log("Authenticated user:", user.id);
-
     // 2. PARSE AND VALIDATE INPUT
     const { pdfBase64, jobDescription } = await req.json();
 
@@ -70,44 +68,13 @@ serve(async (req) => {
       );
     }
 
-    // Validate pdfBase64 type
-    if (typeof pdfBase64 !== 'string') {
-      return new Response(
-        JSON.stringify({ success: false, error: "Invalid PDF data format" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Extract and validate base64 content
+    // Extract base64 content
     let base64Data: string;
     if (pdfBase64.startsWith('data:')) {
       const parts = pdfBase64.split(',');
-      if (parts.length !== 2) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Invalid data URL format" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      // Validate MIME type
-      if (!parts[0].includes('application/pdf')) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Only PDF files are supported" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
       base64Data = parts[1];
     } else {
       base64Data = pdfBase64;
-    }
-
-    // Validate base64 encoding
-    try {
-      atob(base64Data.substring(0, 100));
-    } catch {
-      return new Response(
-        JSON.stringify({ success: false, error: "Invalid base64 encoding" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
     // Check size limit
@@ -118,84 +85,66 @@ serve(async (req) => {
       );
     }
 
-    // Validate job description length
-    if (jobDescription && typeof jobDescription === 'string' && jobDescription.length > MAX_JOB_DESCRIPTION_LENGTH) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Job description too long. Maximum 5000 characters" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
       throw new Error("AI service not configured");
     }
 
-    console.log("Extracting PDF content using Lovable AI for user:", user.id);
+    // 3. EXTRACT TEXT FROM PDF
+    console.log("Extracting text from PDF via pdf-parse...");
+    let extractedText = "";
+    try {
+      // Decode base64 to Buffer
+      const pdfBuffer = Buffer.from(base64Data, 'base64');
+      const data = await pdf(pdfBuffer);
+      extractedText = data.text;
 
-    // Build the extraction prompt
-    const extractionPrompt = `Analise este documento PDF de currículo e extraia TODAS as informações em formato JSON estruturado.
+      if (!extractedText || extractedText.trim().length < 50) {
+        throw new Error("PDF text extraction resulted in empty content (or scanned PDF without OCR).");
+      }
 
-EXTRAIA com cuidado:
-- Nome completo
-- Título/Cargo profissional
-- Email
-- Telefone
-- Localização
-- LinkedIn (se houver)
-- Resumo profissional
-- TODAS as experiências profissionais (empresa, cargo, período, descrição detalhada)
-- TODA a formação acadêmica (instituição, curso, área, período)
-- TODAS as habilidades/competências
-- Idiomas e níveis
-- Certificações
+      console.log(`Extracted ${extractedText.length} characters from PDF.`);
+    } catch (parseError) {
+      console.error("PDF Parse Error:", parseError);
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Não foi possível ler o texto do PDF. Se for uma imagem escaneada, tente converter para texto antes.",
+        needsManualInput: true
+      }), {
+        status: 200, // Return 200 so fontend can show strict warning
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-${jobDescription ? `\nVAGA ALVO:\n${jobDescription}\n\nDestaque competências relevantes para esta vaga.` : ''}
+    // 4. ASK AI TO PARSE STRUCTURE
+    console.log("Sending text to Lovable AI for structuring...");
+    const extractionPrompt = `Analise o TEXTO abaixo, extraído de um currículo PDF, e transforme em um JSON estruturado.
+    
+TEXTO DO CURRÍCULO:
+"""
+${extractedText.substring(0, 30000)}
+"""
 
-RETORNE APENAS um JSON válido neste formato exato (sem texto adicional, sem markdown):
+INSTRUÇÕES:
+Extraia com o máximo de detalhes possível:
+- Nome completo, Email, Telefone, Localização, LinkedIn, Resumo
+- Experiências (Empresa, Cargo, Datas, Descrição rica)
+- Formação (Instituição, Curso, Datas)
+- Habilidades (Liste todas)
+- Idiomas, Certificações
+
+${jobDescription ? `\nCONTEXTO DA VAGA (Use para filtrar relevancia se necessário, mas mantenha fidelidade): ${jobDescription.substring(0, 2000)}` : ''}
+
+RETORNE APENAS JSON VÁLIDO (sem markdown):
 {
-  "personalInfo": {
-    "fullName": "Nome Completo",
-    "title": "Cargo/Título",
-    "email": "email@example.com",
-    "phone": "(00) 00000-0000",
-    "location": "Cidade, Estado",
-    "linkedin": "linkedin.com/in/...",
-    "summary": "Resumo profissional..."
-  },
-  "experience": [
-    {
-      "id": "exp1",
-      "company": "Nome da Empresa",
-      "position": "Cargo",
-      "startDate": "Mês Ano",
-      "endDate": "Mês Ano ou Atual",
-      "description": "• Responsabilidade 1\\n• Responsabilidade 2"
-    }
-  ],
-  "education": [
-    {
-      "id": "edu1",
-      "institution": "Nome da Instituição",
-      "degree": "Tipo do Curso",
-      "field": "Área de Estudo",
-      "startDate": "Ano",
-      "endDate": "Ano"
-    }
-  ],
-  "skills": [
-    { "id": "skill1", "name": "Habilidade", "level": "Nível" }
-  ],
-  "languages": [
-    { "id": "lang1", "name": "Idioma", "proficiency": "Nível" }
-  ],
-  "certifications": [
-    { "id": "cert1", "name": "Certificação", "issuer": "Emissor", "date": "Data" }
-  ]
+  "personalInfo": { "fullName": "...", "email": "...", "phone": "...", "location": "...", "linkedin": "...", "summary": "..." },
+  "experience": [{ "company": "...", "position": "...", "startDate": "...", "endDate": "...", "description": "..." }],
+  "education": [{ "institution": "...", "degree": "...", "field": "...", "startDate": "...", "endDate": "..." }],
+  "skills": [{ "name": "...", "level": "Intermediário" }],
+  "languages": [{ "name": "...", "proficiency": "Fluente" }],
+  "certifications": [{ "name": "...", "issuer": "...", "date": "..." }]
 }`;
 
-    // Call Lovable AI Gateway with Gemini (supports PDF/document understanding)
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -204,24 +153,8 @@ RETORNE APENAS um JSON válido neste formato exato (sem texto adicional, sem mar
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: extractionPrompt
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:application/pdf;base64,${base64Data}`
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 8000,
+        messages: [{ role: "user", content: extractionPrompt }],
+        max_tokens: 4000,
         temperature: 0.1,
       }),
     });
@@ -229,31 +162,26 @@ RETORNE APENAS um JSON válido neste formato exato (sem texto adicional, sem mar
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Lovable AI error:", response.status, errorText);
-      
+
       if (response.status === 429) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: "Limite de requisições excedido. Tente novamente em alguns segundos." 
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Limite de requisições excedido. Tente novamente em alguns segundos."
         }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      
+
       throw new Error(`AI service error: ${response.status}`);
     }
 
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content;
 
-    if (!content) {
-      console.error("No content in AI response");
-      throw new Error("Não foi possível extrair o conteúdo do PDF");
-    }
+    if (!content) throw new Error("Sem resposta da IA");
 
-    console.log("AI response received, parsing JSON...");
-
-    // Clean up the response - remove markdown code blocks if present
+    // Clean JSON
     let cleanContent = content.trim();
     if (cleanContent.startsWith('```json')) {
       cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
@@ -261,27 +189,15 @@ RETORNE APENAS um JSON válido neste formato exato (sem texto adicional, sem mar
       cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
     }
 
-    // Parse the JSON response
     let extractedData;
     try {
       extractedData = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error("JSON parse error:", parseError, "Content:", cleanContent.substring(0, 500));
-      
-      // Try to extract JSON from the content
-      const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          extractedData = JSON.parse(jsonMatch[0]);
-        } catch {
-          throw new Error("Não foi possível processar a resposta do PDF");
-        }
-      } else {
-        throw new Error("Não foi possível extrair dados estruturados do PDF");
-      }
+    } catch {
+      // Fallback extraction
+      const match = cleanContent.match(/\{[\s\S]*\}/);
+      if (match) extractedData = JSON.parse(match[0]);
+      else throw new Error("JSON Inválido");
     }
-
-    console.log("PDF extraction successful:", extractedData.personalInfo?.fullName || "Unknown");
 
     return new Response(JSON.stringify({
       success: true,
@@ -291,22 +207,22 @@ RETORNE APENAS um JSON válido neste formato exato (sem texto adicional, sem mar
     });
 
   } catch (e) {
-    const errorMessage = e instanceof Error ? e.message : "Unknown error";
-    console.error("PDF extraction error:", errorMessage);
-    
+    const message = e instanceof Error ? e.message : "Erro desconhecido";
+    console.error("Function error:", message);
+
     // Map known safe errors, return generic message for unexpected errors
     const safeErrors: Record<string, string> = {
       "AI service not configured": "Serviço temporariamente indisponível",
-      "Não foi possível extrair o conteúdo do PDF": "Não foi possível extrair o conteúdo do PDF",
-      "Não foi possível processar a resposta do PDF": "Não foi possível processar a resposta do PDF",
-      "Não foi possível extrair dados estruturados do PDF": "Não foi possível extrair dados estruturados do PDF",
+      "Sem resposta da IA": "Não foi possível extrair o conteúdo do PDF",
+      "JSON Inválido": "Não foi possível processar a resposta do PDF",
+      "PDF text extraction resulted in empty content (or scanned PDF without OCR).": "Não foi possível ler o texto do PDF. Se for uma imagem escaneada, tente converter para texto antes.",
     };
-    const safeMessage = safeErrors[errorMessage] || "Erro ao processar PDF";
-    
-    return new Response(JSON.stringify({ 
+    const safeMessage = safeErrors[message] || "Erro ao processar PDF";
+
+    return new Response(JSON.stringify({
       success: false,
       error: safeMessage,
-      needsManualInput: false
+      needsManualInput: message === "PDF text extraction resulted in empty content (or scanned PDF without OCR)."
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

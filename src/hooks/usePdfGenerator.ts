@@ -17,97 +17,35 @@ export function usePdfGenerator() {
     element: HTMLElement,
     resumeHash?: string
   ): Promise<{ blob: Blob; url: string } | null> => {
-    // If we have a cached PDF and the resume hasn't changed, return it
-    if (pdfCache && resumeHash && resumeHash === lastResumeHashRef.current) {
-      return { blob: pdfCache.blob, url: pdfCache.url };
-    }
-
-    setIsGenerating(true);
-
-    try {
-      // Capture the element as canvas
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      });
-
-      // Create PDF from canvas
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      const pageHeight = pdfHeight;
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      // Add first page
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      // Add subsequent pages
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      // Generate blob
-      const blob = pdf.output('blob');
-      const url = URL.createObjectURL(blob);
-
-      // Revoke old URL if exists
-      if (pdfCache?.url) {
-        URL.revokeObjectURL(pdfCache.url);
-      }
-
-      // Cache the result
-      const newCache = { blob, url, timestamp: new Date() };
-      setPdfCache(newCache);
-
-      if (resumeHash) {
-        lastResumeHashRef.current = resumeHash;
-      }
-
-      return { blob, url };
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      return null;
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [pdfCache]);
+    // For native print, we don't generate blobs programmatically without user interaction
+    // allowing the browser to handle the "Save as PDF" provides the best vector quality.
+    // This function is kept for signature compatibility but fundamentally changes behavior.
+    console.log("Vector PDF export initiated via native print");
+    return null;
+  }, []);
 
   const downloadPdf = useCallback(async (
     element: HTMLElement,
     filename: string = 'curriculo.pdf',
     resumeHash?: string
   ) => {
-    const result = await generatePdf(element, resumeHash);
+    // Set document title temporarily to influence filename in print dialog
+    const originalTitle = document.title;
+    document.title = filename.replace('.pdf', '');
 
-    if (result) {
-      const link = document.createElement('a');
-      link.href = result.url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    try {
+      window.print();
       return true;
+    } catch (e) {
+      console.error("Print error:", e);
+      return false;
+    } finally {
+      // Restore title after a small delay to ensure print dialog picked it up
+      setTimeout(() => {
+        document.title = originalTitle;
+      }, 500);
     }
-
-    return false;
-  }, [generatePdf]);
+  }, []);
 
   const clearCache = useCallback(() => {
     if (pdfCache?.url) {

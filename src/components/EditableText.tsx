@@ -157,110 +157,12 @@ export function EditableText({
     transition: isDragging ? 'none' : 'transform 0.1s ease-out',
   } : {};
 
-  if (isEditing) {
-    const InputComponent = multiline ? 'textarea' : 'input';
-    return (
-      <div
-        ref={containerRef}
-        className="relative inline-block"
-        style={containerStyle}
-      >
-        <InputComponent
-          ref={inputRef as any}
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          className={cn(
-            'bg-transparent border-b border-resume-accent focus:outline-none focus:border-resume-primary w-full',
-            'transition-colors duration-200',
-            multiline && 'resize-none min-h-[60px] pr-8',
-            isDate && 'pr-8',
-            className
-          )}
-          style={style}
-          placeholder={placeholder}
-        />
-
-        {multiline && (
-          <>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="absolute right-0 top-0 h-6 w-6 text-muted-foreground hover:text-primary z-10"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsPopupOpen(true);
-              }}
-              onMouseDown={(e) => e.preventDefault()}
-              title="Expandir editor"
-            >
-              <Maximize2 className="w-3 h-3" />
-            </Button>
-
-            <Dialog open={isPopupOpen} onOpenChange={(open) => {
-              setIsPopupOpen(open);
-              if (!open) handleBlur();
-            }}>
-              <DialogContent className="sm:max-w-[725px] flex flex-col h-[80vh]">
-                <DialogHeader>
-                  <DialogTitle>Editar Texto</DialogTitle>
-                </DialogHeader>
-                <div className="flex-1 py-4">
-                  <Textarea
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    className="w-full h-full resize-none p-4 text-base leading-relaxed"
-                    placeholder={placeholder}
-                    autoFocus
-                  />
-                </div>
-                <DialogFooter>
-                  <Button onClick={() => setIsPopupOpen(false)}>Concluir</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </>
-        )}
-
-        {isDate && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-primary z-10"
-                title="Selecionar data"
-                onMouseDown={(e) => e.preventDefault()}
-              >
-                <CalendarIcon className="w-3 h-3" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
-                selected={undefined}
-                onSelect={(date) => {
-                  if (date) {
-                    const formatted = format(date, 'MMM yyyy', { locale: ptBR });
-                    setEditValue(formatted);
-                    onChange(formatted);
-                    setIsEditing(false);
-                  }
-                }}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-        )}
-      </div>
-    );
-  }
+  const InputComponent = multiline ? 'textarea' : 'input';
 
   return (
     <div
       ref={containerRef}
-      className={cn("relative inline-flex items-center group", draggable && "cursor-default")}
+      className={cn("relative inline-block", draggable && "cursor-default")}
       style={containerStyle}
       onMouseEnter={() => draggable && setShowHandle(true)}
       onMouseLeave={() => !isDragging && setShowHandle(false)}
@@ -270,24 +172,120 @@ export function EditableText({
     >
       {draggable && showHandle && (
         <button
-          className="absolute -left-5 top-1/2 -translate-y-1/2 p-0.5 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity bg-primary/10 rounded hover:bg-primary/20 print:hidden active:cursor-grabbing"
+          className="absolute -left-5 top-1/2 -translate-y-1/2 p-1 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity bg-primary/10 rounded hover:bg-primary/20 print:hidden active:cursor-grabbing z-20"
           onMouseDown={handleDragStart}
           title="Arraste para mover"
         >
           <GripVertical className="w-3 h-3 text-primary" />
         </button>
       )}
-      <Component
-        onClick={handleClick}
-        className={cn(
-          'cursor-text hover:bg-resume-accent/20 rounded px-1 -mx-1 transition-colors duration-200',
-          !value && 'text-resume-muted italic',
-          className
-        )}
-        style={style}
-      >
-        {value || placeholder}
-      </Component>
+
+      {isEditing ? (
+        <div className="relative">
+          <InputComponent
+            ref={inputRef as any}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className={cn(
+              'bg-transparent border-b border-resume-accent focus:outline-none focus:border-resume-primary w-full',
+              'transition-colors duration-200',
+              multiline && 'resize-none min-h-[60px] pr-8',
+              isDate && 'pr-8',
+              className
+            )}
+            style={style}
+            placeholder={placeholder}
+          />
+          {multiline && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="absolute right-0 top-0 h-6 w-6 text-muted-foreground hover:text-primary z-10"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsPopupOpen(true);
+              }}
+              onMouseDown={(e) => e.preventDefault()}
+              title="Expandir editor"
+            >
+              <Maximize2 className="w-3 h-3" />
+            </Button>
+          )}
+
+          {isDate && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-primary z-10"
+                  title="Selecionar data"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  <CalendarIcon className="w-3 h-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={undefined}
+                  onSelect={(date) => {
+                    if (date) {
+                      const formatted = format(date, 'MMM yyyy', { locale: ptBR });
+                      setEditValue(formatted);
+                      onChange(formatted);
+                      setIsEditing(false); // Close edit mode after date selection
+                    }
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+      ) : (
+        <Component
+          onClick={handleClick}
+          className={cn(
+            'cursor-text hover:bg-resume-accent/20 rounded px-1 -mx-1 transition-colors duration-200 min-w-[20px] min-h-[20px] inline-block',
+            !value && 'text-resume-muted italic bg-resume-accent/5 print:hidden', // Visual highlight for empty fields, hidden in print
+            className
+          )}
+          style={style}
+        >
+          {value || placeholder}
+        </Component>
+      )}
+
+      <Dialog open={isPopupOpen} onOpenChange={(open) => {
+        setIsPopupOpen(open);
+        if (!open && isEditing) handleBlur(); // Save on close if was editing
+      }}>
+        <DialogContent className="sm:max-w-[725px] flex flex-col h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Editar Texto</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 py-4">
+            <Textarea
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              className="w-full h-full resize-none p-4 text-base leading-relaxed"
+              placeholder={placeholder}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button onClick={() => {
+              onChange(editValue); // Save explicitely
+              setIsPopupOpen(false);
+              setIsEditing(false);
+            }}>Concluir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

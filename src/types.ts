@@ -72,6 +72,14 @@ export interface ResumeStyles {
   sidebarPosition?: 'left' | 'right';
 }
 
+// Photo Analysis Types
+export interface PhotoAnalysis {
+  suitable: boolean;
+  score: number;
+  feedback: string;
+  issues: string[];
+}
+
 export interface ResumeData {
   personalInfo: {
     fullName: string;
@@ -83,6 +91,7 @@ export interface ResumeData {
     website?: string;
     summary: string;
     photo?: string;
+    photoAnalysis?: PhotoAnalysis;
   };
   experience: ResumeExperience[];
   education: ResumeEducation[];
@@ -92,6 +101,7 @@ export interface ResumeData {
   projects: ResumeProject[];
   styles: ResumeStyles;
   customSections?: ResumeCustomSection[];
+  sectionTitles?: ResumeSectionTitles;
 }
 
 export interface ResumeCustomSection {
@@ -99,6 +109,16 @@ export interface ResumeCustomSection {
   title: string;
   content: string;
   order: number;
+}
+
+export interface ResumeSectionTitles {
+  summary: string;
+  experience: string;
+  education: string;
+  skills: string;
+  languages: string;
+  certifications: string;
+  projects: string;
 }
 
 // User profile for AI memory
@@ -218,6 +238,15 @@ export const emptyResume: ResumeData = {
   projects: [],
   styles: defaultStyles,
   customSections: [],
+  sectionTitles: {
+    summary: 'Resumo',
+    experience: 'Experiência',
+    education: 'Educação',
+    skills: 'Habilidades',
+    languages: 'Idiomas',
+    certifications: 'Certificações',
+    projects: 'Projetos',
+  },
 };
 
 // Example resume for preview
@@ -278,6 +307,15 @@ export const exampleResume: ResumeData = {
   projects: [],
   styles: defaultStyles,
   customSections: [],
+  sectionTitles: {
+    summary: 'Resumo',
+    experience: 'Experiência',
+    education: 'Educação',
+    skills: 'Habilidades',
+    languages: 'Idiomas',
+    certifications: 'Certificações',
+    projects: 'Projetos',
+  },
 };
 
 export const emptyUserProfile: UserProfile = {

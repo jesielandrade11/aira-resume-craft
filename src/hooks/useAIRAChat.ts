@@ -44,7 +44,7 @@ export function useAIRAChat({
 
   const [isLoading, setIsLoading] = useState(false);
   const [thinkingStatus, setThinkingStatus] = useState<string | null>(null);
-  const [mode, setMode] = useState<ChatMode>('generate');
+  const [mode, setMode] = useState<ChatMode>('planning');
   const [isModeLocked, setIsModeLocked] = useState(false);
 
   const prevJobDescriptionRef = useRef(jobDescription);
@@ -244,17 +244,9 @@ export function useAIRAChat({
     let currentMode = overrideMode || mode;
     const lowerContent = content.toLowerCase();
 
-    if (
-      !overrideMode &&
-      (lowerContent.includes('gerar') ||
-        lowerContent.includes('criar') ||
-        lowerContent.includes('fazer') ||
-        lowerContent.includes('alterar'))
-    ) {
-      currentMode = 'generate';
-      setIsModeLocked(false);
-      setMode('generate');
-    }
+    // REMOVED AUTO-SWITCH LOGIC to respect "Ask before implementing" rule
+    // Strategy: Default to planning/conversation. Logic in prompts will offer "Action Buttons"
+    // to switch to 'generate' mode explicitly when user approves.
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),

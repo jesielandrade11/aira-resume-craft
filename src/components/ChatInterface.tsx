@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent } from 'react';
-import { Send, Paperclip, X, FileText, MessageSquare, Zap, Loader2, Wand2, Reply, Undo2, User, ChevronDown, Sparkles } from 'lucide-react';
+import { Send, Paperclip, X, FileText, MessageSquare, Zap, Loader2, Wand2, Reply, Undo2, User, ChevronDown, Sparkles, Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage, ChatAttachment, ResumeData } from '@/types';
 import { ChatMode } from '@/hooks/useAIRAChat';
+import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import airaAvatar from '@/assets/aira-avatar.png';
@@ -62,6 +63,15 @@ export function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { isListening, transcript, startListening, stopListening, resetTranscript, isSupported } = useVoiceInput();
+
+  // Sync transcript to input
+  useEffect(() => {
+    if (isListening) {
+      setInput(transcript);
+    }
+  }, [transcript, isListening]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -133,9 +143,9 @@ export function ChatInterface({
       if (extractedData) {
         // Send extracted content as context for AI to use
         const pdfContext = `[CURRÍCULO EXTRAÍDO DO PDF "${pdfAttachment.name}"]\n${JSON.stringify(extractedData, null, 2)}\n[FIM DO CURRÍCULO]`;
-        
+
         onSendMessage(
-          input.trim() 
+          input.trim()
             ? `${pdfContext}\n\nMinha solicitação: ${input.trim()}`
             : `${pdfContext}\n\nAnalisei este currículo. O que você acha? Pode me ajudar a melhorá-lo?`,
           undefined,
@@ -147,7 +157,7 @@ export function ChatInterface({
         setReplyingTo(null);
         return;
       }
-      
+
       // Extraction failed
       toast.error('Não foi possível ler o PDF. Tente novamente ou cole o texto diretamente.');
       setAttachments([]);
@@ -481,37 +491,28 @@ export function ChatInterface({
       {/* Input Area + Mode Toggles */}
       <div className="p-3 bg-white border-t">
         {/* Mode Toggles (pill style above input) */}
-        {!isExtractingPdf && !isLoading && (
-          <div className="flex gap-2 mb-2 px-1">
-            <button
-              onClick={() => onModeChange('generate')}
-              className={cn(
-                "text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors border",
-                mode === 'generate'
-                  ? "bg-amber-100 text-amber-700 border-amber-200"
-                  : "bg-transparent text-muted-foreground border-transparent hover:bg-muted"
-              )}
-            >
-              Gerar {mode === 'generate' && '•'}
-            </button>
-            <button
-              onClick={() => onModeChange('planning')}
-              className={cn(
-                "text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors border",
-                mode === 'planning'
-                  ? "bg-blue-100 text-blue-700 border-blue-200"
-                  : "bg-transparent text-muted-foreground border-transparent hover:bg-muted"
-              )}
-            >
-              Planejar {mode === 'planning' && '•'}
-            </button>
-            {isModeLocked && (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-1 ml-auto">
-                🔒 Focado na Vaga
-              </span>
-            )}
-          </div>
-        )}
+        {/* Mode Toggles - REMOVED for simplification */
+          /* Voice Recording Overlay */
+          isListening && (
+            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center animate-in fade-in duration-200">
+              <div className="voice-wave mb-4">
+                <div className="voice-bar"></div>
+                <div className="voice-bar"></div>
+                <div className="voice-bar"></div>
+                <div className="voice-bar"></div>
+                <div className="voice-bar"></div>
+              </div>
+              <p className="text-sm font-medium text-primary mb-6 animate-pulse">Ouvindo...</p>
+              <Button
+                variant="destructive"
+                size="lg"
+                onClick={stopListening}
+                className="rounded-full h-12 w-12 p-0 shadow-lg hover:scale-105 transition-transform"
+              >
+                <Square className="w-5 h-5 fill-current" />
+              </Button>
+            </div>
+          )}
 
         {/* Input Field */}
         <div className="flex gap-2 items-end bg-muted/30 p-1.5 rounded-xl border border-transparent focus-within:border-primary/20 focus-within:bg-white transition-all">
@@ -545,6 +546,20 @@ export function ChatInterface({
             className="min-h-[36px] max-h-[120px] py-2 px-2 resize-none bg-transparent border-0 focus-visible:ring-0 shadow-none text-sm placeholder:text-muted-foreground/70"
             rows={1}
           />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={isListening ? stopListening : startListening}
+            disabled={disabled || isExtractingPdf || !isSupported}
+            className={cn(
+              "h-8 w-8 rounded-lg shrink-0 transition-all",
+              isListening ? "text-red-500 bg-red-50 hover:bg-red-100" : "text-muted-foreground hover:text-foreground"
+            )}
+            title={isListening ? "Parar gravação" : "Gravar áudio"}
+          >
+            <Mic className={cn("w-4 h-4", isListening && "animate-pulse")} />
+          </Button>
 
           <Button
             onClick={() => handleSend()}

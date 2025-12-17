@@ -184,6 +184,60 @@
     border: 1px solid hsl(var(--primary) / 0.3);
     background: linear-gradient(145deg, hsl(var(--card)), hsl(var(--card) / 0.8));
   }
+
+  /* Voice Output Wave Animation */
+  .voice-wave {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 20px;
+  }
+
+  .voice-bar {
+    width: 3px;
+    background-color: hsl(var(--primary));
+    border-radius: 99px;
+    animation: voice-wave 1s ease-in-out infinite;
+  }
+
+  .voice-bar:nth-child(1) {
+    animation-delay: 0.1s;
+    height: 40%;
+  }
+
+  .voice-bar:nth-child(2) {
+    animation-delay: 0.2s;
+    height: 70%;
+  }
+
+  .voice-bar:nth-child(3) {
+    animation-delay: 0.3s;
+    height: 100%;
+  }
+
+  .voice-bar:nth-child(4) {
+    animation-delay: 0.2s;
+    height: 70%;
+  }
+
+  .voice-bar:nth-child(5) {
+    animation-delay: 0.1s;
+    height: 40%;
+  }
+
+  @keyframes voice-wave {
+
+    0%,
+    100% {
+      transform: scaleY(0.5);
+      opacity: 0.5;
+    }
+
+    50% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+  }
 }
 
 /* Print Styles - Only print the resume */

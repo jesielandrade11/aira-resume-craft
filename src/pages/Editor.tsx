@@ -19,65 +19,76 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { usePdfGenerator } from '@/hooks/usePdfGenerator';
 import { getTemplateById } from '@/data/resumeTemplates';
 import { Button } from '@/components/ui/button';
-import { User, Download, RotateCcw, Sparkles, Home, Save, MessageCircle, FileText, Menu, Check } from 'lucide-react';
+import { User, Download, RotateCcw, Sparkles, Home, Save, MessageCircle, FileText, Menu, Check, Undo2, Redo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile } from '@/types';
 
-// Helper to sync resume data to user profile (smart merge)
+// Helper to sync resume data to user profile (smart merge - Upsert Strategy)
 const syncResumeToProfile = (resumeData: ResumeData, currentProfile: UserProfile, updateProfileFn: (u: Partial<UserProfile>) => void) => {
   if (!currentProfile || !currentProfile.id) return;
 
   const updates: Partial<UserProfile> = {};
   let hasUpdates = false;
 
-  // 1. Personal Info (only if missing in profile)
-  if (!currentProfile.fullName && resumeData.personalInfo.fullName) { updates.fullName = resumeData.personalInfo.fullName; hasUpdates = true; }
-  if (!currentProfile.email && resumeData.personalInfo.email) { updates.email = resumeData.personalInfo.email; hasUpdates = true; }
-  if (!currentProfile.phone && resumeData.personalInfo.phone) { updates.phone = resumeData.personalInfo.phone; hasUpdates = true; }
-  if (!currentProfile.location && resumeData.personalInfo.location) { updates.location = resumeData.personalInfo.location; hasUpdates = true; }
-  if (!currentProfile.linkedin && resumeData.personalInfo.linkedin) { updates.linkedin = resumeData.personalInfo.linkedin; hasUpdates = true; }
-  if (!currentProfile.bio && resumeData.personalInfo.summary) { updates.bio = resumeData.personalInfo.summary; hasUpdates = true; }
+  // 1. Personal Info - Aggressive Sync (Overwrite if resume has data)
+  if (resumeData.personalInfo.fullName && resumeData.personalInfo.fullName !== currentProfile.fullName) { updates.fullName = resumeData.personalInfo.fullName; hasUpdates = true; }
+  if (resumeData.personalInfo.email && resumeData.personalInfo.email !== currentProfile.email) { updates.email = resumeData.personalInfo.email; hasUpdates = true; }
+  if (resumeData.personalInfo.phone && resumeData.personalInfo.phone !== currentProfile.phone) { updates.phone = resumeData.personalInfo.phone; hasUpdates = true; }
+  if (resumeData.personalInfo.location && resumeData.personalInfo.location !== currentProfile.location) { updates.location = resumeData.personalInfo.location; hasUpdates = true; }
+  if (resumeData.personalInfo.linkedin && resumeData.personalInfo.linkedin !== currentProfile.linkedin) { updates.linkedin = resumeData.personalInfo.linkedin; hasUpdates = true; }
+  if (resumeData.personalInfo.summary && resumeData.personalInfo.summary !== currentProfile.bio) { updates.bio = resumeData.personalInfo.summary; hasUpdates = true; }
 
-  // 2. Experiences
+  // 2. Experiences - UPSERT (Update existing or Insert new)
   const existingExps = currentProfile.experiences || [];
-  const newExps = resumeData.experience || [];
-  const addedExps = newExps.filter(rExp =>
-    !existingExps.some(pExp => pExp.company === rExp.company && pExp.position === rExp.position)
-  ).map(rExp => ({
-    company: rExp.company,
-    position: rExp.position,
-    startDate: rExp.startDate,
-    endDate: rExp.endDate,
-    current: rExp.endDate.toLowerCase().includes('atual') || rExp.endDate.toLowerCase().includes('present'),
-    description: rExp.description
-  }));
+  const resumeExps = resumeData.experience || [];
 
-  if (addedExps.length > 0) {
-    updates.experiences = [...existingExps, ...addedExps];
-    hasUpdates = true;
+  if (resumeExps.length > 0) {
+    const mergedExps = [...existingExps];
+    let expChanged = false;
+
+    resumeExps.forEach(rExp => {
+      const existingIndex = mergedExps.findIndex(pExp =>
+        pExp.company.toLowerCase().trim() === rExp.company.toLowerCase().trim() &&
+        pExp.position.toLowerCase().trim() === rExp.position.toLowerCase().trim()
+      );
+
+      const newExpData = {
+        company: rExp.company,
+        position: rExp.position,
+        startDate: rExp.startDate,
+        endDate: rExp.endDate,
+        current: rExp.endDate.toLowerCase().includes('atual') || rExp.endDate.toLowerCase().includes('present'),
+        description: rExp.description
+      };
+
+      if (existingIndex >= 0) {
+        // Update existing if different
+        const current = mergedExps[existingIndex];
+        if (
+          current.description !== newExpData.description ||
+          current.startDate !== newExpData.startDate ||
+          current.endDate !== newExpData.endDate
+        ) {
+          mergedExps[existingIndex] = newExpData;
+          expChanged = true;
+        }
+      } else {
+        // Insert new
+        mergedExps.push(newExpData);
+        expChanged = true;
+      }
+    });
+
+    if (expChanged) {
+      updates.experiences = mergedExps;
+      hasUpdates = true;
+    }
   }
 
-  // 3. Education
-  const existingEdu = currentProfile.education || [];
-  const newEdu = resumeData.education || [];
-  const addedEdu = newEdu.filter(rEdu =>
-    !existingEdu.some(pEdu => pEdu.institution === rEdu.institution && pEdu.degree === rEdu.degree)
-  ).map(rEdu => ({
-    institution: rEdu.institution,
-    degree: rEdu.degree,
-    field: rEdu.field,
-    startDate: rEdu.startDate,
-    endDate: rEdu.endDate
-  }));
-
-  if (addedEdu.length > 0) {
-    updates.education = [...existingEdu, ...addedEdu];
-    hasUpdates = true;
-  }
-
-  // 4. Skills
+  // 3. Skills - Merge unique
   const existingSkills = currentProfile.skills || [];
   const newSkills = (resumeData.skills || []).map(s => s.name);
   const addedSkills = newSkills.filter(s => !existingSkills.some(es => es.toLowerCase() === s.toLowerCase()));
@@ -88,7 +99,7 @@ const syncResumeToProfile = (resumeData: ResumeData, currentProfile: UserProfile
   }
 
   if (hasUpdates) {
-    console.log("Syncing resume data to profile:", Object.keys(updates));
+    console.log("Syncing resume to profile:", updates);
     updateProfileFn(updates);
   }
 };
@@ -116,7 +127,14 @@ export default function Editor() {
   const { resumes, saveResume } = useResumes();
   const { profile: userProfile, updateProfile: handleProfileUpdate, useCredits, hasUnlimited, fetchProfile } = useUserProfile();
 
-  const [resume, setResume] = useState<ResumeData>(() => {
+  const {
+    state: resume,
+    setState: setResume,
+    undo: resumeUndo,
+    redo: resumeRedo,
+    canUndo: canResumeUndo,
+    canRedo: canResumeRedo
+  } = useUndoRedo<ResumeData>(() => {
     if (templateId) {
       const template = getTemplateById(templateId);
       if (template) {
@@ -128,14 +146,35 @@ export default function Editor() {
     return saved ? JSON.parse(saved) : emptyResume;
   });
 
-  // Pre-fill resume with profile data if it's new and empty
+  // Undo/Redo Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if user is typing in an input - if so, let browser handle native undo
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          if (canResumeRedo) resumeRedo();
+        } else {
+          if (canResumeUndo) resumeUndo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown as any);
+    return () => window.removeEventListener('keydown', handleKeyDown as any);
+  }, [resumeUndo, resumeRedo, canResumeUndo, canResumeRedo]);
+
+  // Pre-fill resume with profile data only if it's new and empty
   useEffect(() => {
     if (isNew && userProfile && resume.personalInfo.fullName === '' && resume.skills.length === 0) {
-      console.log("Pre-filling resume from profile...");
-      setResume(prev => ({
-        ...prev,
+      setResume({
+        ...resume,
         personalInfo: {
-          ...prev.personalInfo,
+          ...resume.personalInfo,
           fullName: userProfile.fullName || '',
           email: userProfile.email || '',
           phone: userProfile.phone || '',
@@ -147,7 +186,7 @@ export default function Editor() {
         skills: (userProfile.skills || []).map(skill => ({
           id: crypto.randomUUID(),
           name: skill,
-          level: 'Intermediário' // Default level
+          level: 'Intermediário'
         })),
         experience: (userProfile.experiences || []).map(exp => ({
           id: crypto.randomUUID(),
@@ -170,19 +209,26 @@ export default function Editor() {
           name: lang.name,
           proficiency: lang.level
         }))
-      }));
+      });
     }
-  }, [isNew, userProfile, resume.personalInfo.fullName, resume.skills.length]);
+  }, [isNew, userProfile, resume.personalInfo.fullName]); // Reduced dependencies to run once
 
   const [resumeTitle, setResumeTitle] = useState('Novo Currículo');
   const [currentResumeId, setCurrentResumeId] = useState<string | null>(resumeId);
+  // Ref for currentResumeId to avoid closure issues in autosave
+  const currentResumeIdRef = useRef<string | null>(resumeId);
   const [hasAutoSentPrompt, setHasAutoSentPrompt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
+  useEffect(() => {
+    currentResumeIdRef.current = currentResumeId;
+  }, [currentResumeId]);
+
   const [jobDescription, setJobDescription] = useState(() => {
     if (initialJob) return decodeURIComponent(initialJob);
-    return localStorage.getItem(STORAGE_KEYS.jobDescription) || '';
+    // Removed global localStorage for jobDescription to scope it per resume
+    return '';
   });
 
   // Debounced resume for auto-save
@@ -204,10 +250,11 @@ export default function Editor() {
       if (isSaving) return;
 
       try {
+        setIsSaving(true);
         let titleToSave = resumeTitle;
 
         // If it's the first save of a new resume, set a smart title
-        if (!currentResumeId && titleToSave === 'Novo Currículo') {
+        if (!currentResumeIdRef.current && titleToSave === 'Novo Currículo') {
           if (initialJob) {
             const decoded = decodeURIComponent(initialJob);
             titleToSave = `Vaga: ${decoded.substring(0, 30)}...`;
@@ -219,10 +266,14 @@ export default function Editor() {
         }
 
         // Silent save for auto-updates
-        const id = await saveResume(debouncedResume, jobDescription, currentResumeId || undefined, titleToSave, { silent: true });
+        // Use currentResumeIdRef to get the latest ID even if closure is stale
+        const id = await saveResume(debouncedResume, jobDescription, currentResumeIdRef.current || undefined, titleToSave, { silent: true });
 
         if (id) {
-          if (!currentResumeId) setCurrentResumeId(id);
+          if (id !== currentResumeIdRef.current) {
+            setCurrentResumeId(id);
+            currentResumeIdRef.current = id;
+          }
           setLastSaved(new Date());
 
           // Sync to profile
@@ -232,6 +283,8 @@ export default function Editor() {
         }
       } catch (e) {
         console.error("Auto-save failed", e);
+      } finally {
+        setIsSaving(false);
       }
     };
 
@@ -243,7 +296,7 @@ export default function Editor() {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
-  }, [debouncedResume, jobDescription, saveResume, currentResumeId, resumeTitle, userProfile, handleProfileUpdate]);
+  }, [debouncedResume, jobDescription, saveResume, resumeTitle, userProfile, handleProfileUpdate]);
 
   const credits = {
     total: userProfile.credits,
@@ -312,51 +365,10 @@ export default function Editor() {
   }, [fromResumeId, isNew, resumes]);
 
   // Auto-save Logic (Backend)
-  useEffect(() => {
-    const autoSave = async () => {
-      // Don't auto-save if empty or just initialized
-      if (!resume.personalInfo.fullName && resume.experience.length === 0) return;
 
-      setIsSaving(true);
-      try {
-        let titleToSave = resumeTitle;
-
-        // If it's the first save of a new resume, set a smart title
-        if (!currentResumeId && titleToSave === 'Novo Currículo') {
-          if (initialJob) {
-            const decoded = decodeURIComponent(initialJob);
-            titleToSave = `Vaga: ${decoded.substring(0, 30)}...`;
-          } else if (templateId) {
-            const template = getTemplateById(templateId);
-            if (template) titleToSave = `Template: ${template.name}`;
-          }
-          setResumeTitle(titleToSave);
-        }
-
-        const id = await saveResume(debouncedResume, jobDescription, currentResumeId || undefined, titleToSave);
-
-        if (id) {
-          if (!currentResumeId) setCurrentResumeId(id);
-          setLastSaved(new Date());
-
-          // Sync to profile
-          if (userProfile) {
-            syncResumeToProfile(debouncedResume, userProfile, handleProfileUpdate);
-          }
-        }
-      } catch (e) {
-        console.error("Auto-save failed", e);
-      } finally {
-        setIsSaving(false);
-      }
-    };
-
-    if (debouncedResume !== emptyResume) {
-      autoSave();
-    }
-  }, [debouncedResume, jobDescription, saveResume, currentResumeId, resumeTitle, userProfile, handleProfileUpdate]);
 
   // LocalStorage Backup
+  // LocalStorage Backup - Only for fallback, not main persistence
   useEffect(() => {
     try {
       const resumeToStore = {
@@ -369,11 +381,10 @@ export default function Editor() {
         }
       };
       localStorage.setItem(STORAGE_KEYS.resume, JSON.stringify(resumeToStore));
-      localStorage.setItem(STORAGE_KEYS.jobDescription, jobDescription);
+      // NOTE: We don't save jobDescription to global storage anymore to keep it scoped
     } catch (error) {
-      // Quota exceeded ignore
     }
-  }, [resume, jobDescription]);
+  }, [resume]);
 
   // Handle Payment
   useEffect(() => {
@@ -447,7 +458,8 @@ export default function Editor() {
     }
   }, [setChatMessages, saveChat, currentResumeId]);
 
-  const { messages, isLoading, thinkingStatus, mode, setMode, sendMessage, clearChat, canUndo, undo, isModeLocked, activateJobMode, deactivateJobMode } = useAIRAChat({
+  // Removed undo/canUndo from destructuring to avoid collision and use global resumeUndo
+  const { messages, isLoading, thinkingStatus, mode, setMode, sendMessage, clearChat, isModeLocked, activateJobMode, deactivateJobMode } = useAIRAChat({
     resume,
     userProfile,
     jobDescription: savedJobDescription,
@@ -599,11 +611,28 @@ export default function Editor() {
 
           {/* Desktop Actions */}
           <div className="hidden sm:flex items-center gap-2">
+            <div className="flex items-center mr-2 bg-muted/50 rounded-lg p-0.5 border border-border">
+              <Button variant="ghost" size="icon" onClick={resumeUndo} disabled={!canResumeUndo} title="Desfazer (Ctrl+Z)" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                <Undo2 className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={resumeRedo} disabled={!canResumeRedo} title="Refazer (Ctrl+Shift+Z)" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                <Redo2 className="w-4 h-4" />
+              </Button>
+            </div>
             <CreditsDisplay credits={credits} onUpgrade={() => setShowBuyCreditsModal(true)} />
             <Button variant="outline" size="sm" onClick={() => navigate('/')} title="Início">
               <Home className="w-4 h-4" />
             </Button>
-            <PhotoUpload currentPhoto={resume.personalInfo.photo} onPhotoChange={(photo) => handleResumeUpdate({ personalInfo: { ...resume.personalInfo, photo } })} />
+            <PhotoUpload
+              currentPhoto={resume.personalInfo.photo}
+              onChange={(photo, analysis) => handleResumeUpdate({
+                personalInfo: {
+                  ...resume.personalInfo,
+                  photo,
+                  photoAnalysis: analysis || undefined
+                }
+              })}
+            />
             <UserProfileModal profile={userProfile}>
               <Button variant="outline" size="icon" title="Seu Perfil"><User className="w-4 h-4" /></Button>
             </UserProfileModal>
@@ -642,7 +671,13 @@ export default function Editor() {
                   </UserProfileModal>
                   <PhotoUpload
                     currentPhoto={resume.personalInfo.photo}
-                    onPhotoChange={(photo) => handleResumeUpdate({ personalInfo: { ...resume.personalInfo, photo } })}
+                    onChange={(photo, analysis) => handleResumeUpdate({
+                      personalInfo: {
+                        ...resume.personalInfo,
+                        photo,
+                        photoAnalysis: analysis || undefined
+                      }
+                    })}
                   />
                   <Button onClick={handleManualSave} className="justify-start gap-2"><Save className="w-4 h-4" /> Salvar Currículo</Button>
                   <Button onClick={handleExportPDF} variant="outline" className="justify-start gap-2"><Download className="w-4 h-4" /> Baixar PDF</Button>
@@ -680,8 +715,8 @@ export default function Editor() {
                 disabled={false}
                 jobDescription={savedJobDescription}
                 onResumeUpdate={handleResumeUpdate}
-                onUndo={undo}
-                canUndo={canUndo}
+                onUndo={resumeUndo}
+                canUndo={canResumeUndo}
                 isModeLocked={isModeLocked}
                 credits={hasUnlimited() ? 9999 : userProfile.credits}
                 onBuyCredits={() => setShowBuyCreditsModal(true)}

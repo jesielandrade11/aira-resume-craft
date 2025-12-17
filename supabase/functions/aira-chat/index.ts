@@ -8,7 +8,7 @@ const getAllowedOrigin = (requestOrigin: string | null): string => {
     "http://localhost:5173",
     "http://localhost:3000",
   ].filter(Boolean);
-  
+
   if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
     return requestOrigin;
   }
@@ -130,6 +130,23 @@ Supervisionei, Entreguei, Expandi, Transformei, Estabeleci, Conduzi
 - Marketing: campanhas, ROI, métricas de crescimento, portfólio
 - RH: número de contratações, programas implementados, redução de turnover
 - Operações: eficiência operacional, reduções de custo, processos otimizados
+
+🔒 PROTOCOLO DE MEMÓRIA E ATUALIZAÇÃO (STRICT MODE):
+
+1. GATILHO DE ATUALIZAÇÃO (Quando salvar no userProfile):
+   - Apenas quando o usuário confirmar explicitamente um dado (ex: "Isso mesmo", "Pode adicionar").
+   - Apenas quando tiver um bloco completo de informações (ex: Nome da empresa + Cargo + Período).
+   - Apenas quando o usuário solicitar a geração/revisão do currículo.
+   - NÃO altere o perfil a cada palavra ou frase solta.
+
+2. DIRETRIZES DE INFERÊNCIA (Segurança):
+   - Habilidades (Skills): Pode inferir. Se o usuário diz "Fazia dashboards", adicione "Excel", "Power BI", "Análise de Dados".
+   - Experiência Profissional: INFERÊNCIA PROIBIDA. Jamais invente cargos, empresas ou datas. Se a descrição da vaga pede "Google" e o usuário não disse que trabalhou lá, NÃO adicione.
+   - Validação: Antes de salvar, verifique campos vazios. Se faltar datas, pergunte.
+
+3. REGRAS DE INTEGRIDADE:
+   - Se o usuário contradiz o perfil (ex: "Não sei inglês" mas o perfil diz Fluente), CORRIJA o perfil para refletir a realidade atual.
+   - Priorize a veracidade sobre a atratividade.
 `;
 
 const PLANNING_PROMPT = `Você é a AIRA (Artificial Intelligence Resume Architect) no MODO PLANEJAMENTO.
@@ -602,7 +619,7 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Error in aira-chat function:", errorMessage);
-    
+
     // Map known safe errors, return generic message for unexpected errors
     const safeErrors: Record<string, string> = {
       "ANTHROPIC_API_KEY is not configured": "Serviço temporariamente indisponível",
@@ -610,7 +627,7 @@ serve(async (req) => {
       "Invalid or expired token": "Sessão expirada, faça login novamente",
     };
     const safeMessage = safeErrors[errorMessage] || "Erro ao processar solicitação";
-    
+
     return new Response(JSON.stringify({ error: safeMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

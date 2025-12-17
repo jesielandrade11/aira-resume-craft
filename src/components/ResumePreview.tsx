@@ -1,4 +1,4 @@
-import { ResumeData, ResumeExperience, ResumeEducation, ResumeSkill, ResumeStyles, defaultStyles } from '@/types';
+import { ResumeData, ResumeExperience, ResumeEducation, ResumeSkill, ResumeStyles, defaultStyles, ResumeSectionTitles } from '@/types';
 import { EditableText } from './EditableText';
 import { Mail, Phone, MapPin, Linkedin, Globe, Plus, Trash2, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -156,7 +156,7 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
     if (styles.skillsStyle === 'dots') {
       const dots = skill.level === 'Expert' ? 5 : skill.level === 'Avançado' ? 4 : skill.level === 'Intermediário' ? 3 : 2;
       return (
-        <div key={skill.id} className="flex items-center justify-between gap-2 mb-2 group w-full">
+        <div key={skill.id} className={cn("flex items-center justify-between gap-2 mb-2 group w-full", !skill.name && "print:hidden")}>
           <EditableText value={skill.name} onChange={(v) => updateSkill(index, 'name', v)} className={commonClass} />
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map(n => (
@@ -171,7 +171,7 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
     if (styles.skillsStyle === 'bars') {
       const width = skill.level === 'Expert' ? '100%' : skill.level === 'Avançado' ? '75%' : '50%';
       return (
-        <div key={skill.id} className="mb-2 group w-full">
+        <div key={skill.id} className={cn("mb-2 group w-full", !skill.name && "print:hidden")}>
           <div className="flex justify-between">
             <EditableText value={skill.name} onChange={(v) => updateSkill(index, 'name', v)} className={commonClass} />
             <button onClick={() => removeSkill(index)} className="opacity-0 group-hover:opacity-100"><Trash2 className="w-3 h-3 text-red-500" /></button>
@@ -185,18 +185,38 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
 
     // Tags
     return (
-      <div key={skill.id} className="inline-flex items-center bg-black/5 px-2 py-1 rounded gap-1 mr-2 mb-2 group">
+      <div key={skill.id} className={cn("inline-flex items-center bg-black/5 px-2 py-1 rounded gap-1 mr-2 mb-2 group", !skill.name && "print:hidden")}>
         <EditableText value={skill.name} onChange={(v) => updateSkill(index, 'name', v)} className={commonClass} />
         <button onClick={() => removeSkill(index)} className="opacity-0 group-hover:opacity-100"><Trash2 className="w-3 h-3 text-red-500" /></button>
       </div>
     );
   };
 
+  // --- Section Title Helper ---
+  const getSectionTitle = (key: keyof ResumeSectionTitles, defaultTitle: string) => {
+    return resume.sectionTitles?.[key] || defaultTitle;
+  };
+
+  const updateSectionTitle = (key: keyof ResumeSectionTitles, value: string) => {
+    onUpdate({
+      sectionTitles: {
+        ...resume.sectionTitles,
+        [key]: value
+      } as ResumeSectionTitles
+    });
+  };
+
   // --- SECTIONS ---
 
   const SummarySection = () => (resume.personalInfo.summary || true) && (
-    <section className={cn("resume-section", getSectionSpacing())}>
-      <h3 className={sectionTitleStyle} style={{ color: styles.primaryColor, borderColor: styles.primaryColor }}>RESUMO</h3>
+    <section className={cn("resume-section", getSectionSpacing(), !resume.personalInfo.summary && "print:hidden")}>
+      <h3 className={sectionTitleStyle} style={{ color: styles.primaryColor, borderColor: styles.primaryColor }}>
+        <EditableText
+          value={getSectionTitle('summary', 'RESUMO')}
+          onChange={(v) => updateSectionTitle('summary', v)}
+          className="uppercase"
+        />
+      </h3>
       <EditableText value={resume.personalInfo.summary} onChange={(v) => updatePersonalInfo('summary', v)} as="p" multiline className={cn(getBodySize(), 'leading-relaxed mt-2')} />
     </section>
   );
@@ -204,7 +224,13 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
   const ExperienceSection = () => (
     <section className={cn("resume-section", getSectionSpacing())} onMouseEnter={() => setHoveredSection('exp')} onMouseLeave={() => setHoveredSection(null)}>
       <div className="flex justify-between items-center mb-3">
-        <h3 className={sectionTitleStyle} style={{ color: styles.primaryColor, borderColor: styles.primaryColor }}>EXPERIÊNCIA</h3>
+        <h3 className={sectionTitleStyle} style={{ color: styles.primaryColor, borderColor: styles.primaryColor }}>
+          <EditableText
+            value={getSectionTitle('experience', 'EXPERIÊNCIA')}
+            onChange={(v) => updateSectionTitle('experience', v)}
+            className="uppercase"
+          />
+        </h3>
         <Button variant="ghost" size="sm" onClick={addExperience} className={cn("h-5 text-xs", hoveredSection === 'exp' ? 'opacity-100' : 'opacity-0')}><Plus className="w-3 h-3" /></Button>
       </div>
       <div className="space-y-4">
@@ -219,7 +245,7 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
             <EditableText value={exp.description} onChange={(v) => updateExperience(i, 'description', v)} multiline className={cn(getBodySize(), 'whitespace-pre-wrap')} />
           </div>
         ))}
-        {resume.experience.length === 0 && <p className="text-gray-300 italic text-sm">Adicione suas experiências</p>}
+        {resume.experience.length === 0 && <p className="text-gray-300 italic text-sm print:hidden">Adicione suas experiências</p>}
       </div>
     </section>
   );
@@ -227,7 +253,13 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
   const EducationSection = () => (
     <section className={cn("resume-section", getSectionSpacing())} onMouseEnter={() => setHoveredSection('edu')} onMouseLeave={() => setHoveredSection(null)}>
       <div className="flex justify-between items-center mb-3">
-        <h3 className={sectionTitleStyle} style={{ color: styles.primaryColor, borderColor: styles.primaryColor }}>EDUCAÇÃO</h3>
+        <h3 className={sectionTitleStyle} style={{ color: styles.primaryColor, borderColor: styles.primaryColor }}>
+          <EditableText
+            value={getSectionTitle('education', 'EDUCAÇÃO')}
+            onChange={(v) => updateSectionTitle('education', v)}
+            className="uppercase"
+          />
+        </h3>
         <Button variant="ghost" size="sm" onClick={addEducation} className={cn("h-5 text-xs", hoveredSection === 'edu' ? 'opacity-100' : 'opacity-0')}><Plus className="w-3 h-3" /></Button>
       </div>
       <div className="space-y-3">
@@ -241,7 +273,7 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
             </div>
           </div>
         ))}
-        {resume.education.length === 0 && <p className="text-gray-300 italic text-sm">Adicione sua formação</p>}
+        {resume.education.length === 0 && <p className="text-gray-300 italic text-sm print:hidden">Adicione sua formação</p>}
       </div>
     </section>
   );
@@ -249,7 +281,13 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
   const SkillsSection = ({ isDarkBackground = false }) => (
     <section className={cn("resume-section", getSectionSpacing())} onMouseEnter={() => setHoveredSection('skill')} onMouseLeave={() => setHoveredSection(null)}>
       <div className="flex justify-between items-center mb-2">
-        <h3 className={sectionTitleStyle} style={{ color: isDarkBackground ? (styles.secondaryColor || '#fff') : styles.primaryColor, borderColor: isDarkBackground ? styles.secondaryColor : styles.primaryColor }}>HABILIDADES</h3>
+        <h3 className={sectionTitleStyle} style={{ color: isDarkBackground ? (styles.secondaryColor || '#fff') : styles.primaryColor, borderColor: isDarkBackground ? styles.secondaryColor : styles.primaryColor }}>
+          <EditableText
+            value={getSectionTitle('skills', 'HABILIDADES')}
+            onChange={(v) => updateSectionTitle('skills', v)}
+            className="uppercase"
+          />
+        </h3>
         <Button variant="ghost" size="sm" onClick={addSkill} className={cn("h-5 text-xs text-white/50 hover:text-white", hoveredSection === 'skill' ? 'opacity-100' : 'opacity-0')}><Plus className="w-3 h-3" /></Button>
       </div>
       <div className={styles.skillsStyle === 'tags' ? 'flex flex-wrap' : 'space-y-1'}>

@@ -7,30 +7,25 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import Cropper, { Area } from 'react-easy-crop';
 
-interface PhotoAnalysis {
-  suitable: boolean;
-  score: number;
-  feedback: string;
-  issues: string[];
-}
+import { PhotoAnalysis } from '@/types';
 
 interface PhotoUploadProps {
   currentPhoto?: string;
-  onPhotoChange: (photoBase64: string | undefined) => void;
+  onChange: (photo: string | undefined, analysis: PhotoAnalysis | null) => void;
 }
 
 // Helper function to create cropped image
 async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<string> {
   const image = new Image();
   image.src = imageSrc;
-  
+
   await new Promise((resolve) => {
     image.onload = resolve;
   });
 
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  
+
   if (!ctx) throw new Error('Failed to get canvas context');
 
   // Set canvas size to the crop size
@@ -54,7 +49,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<string>
   return canvas.toDataURL('image/jpeg', 0.85);
 }
 
-export function PhotoUpload({ currentPhoto, onPhotoChange }: PhotoUploadProps) {
+export function PhotoUpload({ currentPhoto, onChange }: PhotoUploadProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<PhotoAnalysis | null>(null);
@@ -116,18 +111,18 @@ export function PhotoUpload({ currentPhoto, onPhotoChange }: PhotoUploadProps) {
 
   const handleConfirm = async () => {
     if (!imageSrc || !croppedAreaPixels) return;
-    
+
     try {
       // Get cropped image
       const croppedImage = await getCroppedImg(imageSrc, croppedAreaPixels);
-      
+
       // Analyze the cropped photo first
       const result = await analyzePhoto(croppedImage);
       setAnalysis(result);
-      
-      // Always save the photo regardless of analysis result
-      onPhotoChange(croppedImage);
-      
+
+      // Always save the photo AND analysis together
+      onChange(croppedImage, result);
+
       if (result?.suitable) {
         toast.success('Foto salva! Análise: ótima qualidade.');
       } else if (result) {
@@ -135,7 +130,7 @@ export function PhotoUpload({ currentPhoto, onPhotoChange }: PhotoUploadProps) {
       } else {
         toast.success('Foto salva com sucesso!');
       }
-      
+
       // Keep dialog open briefly to show analysis, then close
       setTimeout(() => {
         setIsOpen(false);
@@ -148,7 +143,7 @@ export function PhotoUpload({ currentPhoto, onPhotoChange }: PhotoUploadProps) {
   };
 
   const handleRemove = () => {
-    onPhotoChange(undefined);
+    onChange(undefined, null);
     resetState();
     toast.success('Foto removida');
     setIsOpen(false);
@@ -197,7 +192,7 @@ export function PhotoUpload({ currentPhoto, onPhotoChange }: PhotoUploadProps) {
                   onZoomChange={setZoom}
                 />
               </div>
-              
+
               {/* Zoom Control */}
               <div className="flex items-center gap-3 px-2">
                 <ZoomOut className="w-4 h-4 text-muted-foreground" />
@@ -211,7 +206,7 @@ export function PhotoUpload({ currentPhoto, onPhotoChange }: PhotoUploadProps) {
                 />
                 <ZoomIn className="w-4 h-4 text-muted-foreground" />
               </div>
-              
+
               <p className="text-xs text-center text-muted-foreground">
                 Arraste para posicionar e use o controle para ajustar o zoom
               </p>
@@ -251,8 +246,8 @@ export function PhotoUpload({ currentPhoto, onPhotoChange }: PhotoUploadProps) {
           {analysis && !isAnalyzing && (
             <div className={cn(
               "p-4 rounded-lg border",
-              analysis.suitable 
-                ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900" 
+              analysis.suitable
+                ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900"
                 : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900"
             )}>
               <div className="flex items-start gap-3">
@@ -271,11 +266,11 @@ export function PhotoUpload({ currentPhoto, onPhotoChange }: PhotoUploadProps) {
                     </span>
                     <span className={cn(
                       "text-sm font-bold px-2 py-0.5 rounded",
-                      analysis.score >= 70 
-                        ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" 
-                        : analysis.score >= 50 
-                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
-                        : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                      analysis.score >= 70
+                        ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                        : analysis.score >= 50
+                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
+                          : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
                     )}>
                       {analysis.score}/100
                     </span>
