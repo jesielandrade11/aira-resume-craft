@@ -3,17 +3,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import * as pdfjs from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/+esm";
 
 const getAllowedOrigin = (requestOrigin: string | null): string => {
-  const allowedOrigins = [
-    Deno.env.get("ALLOWED_ORIGIN") || "",
-    "https://ofibaexkxacahzftdodb.lovable.app",
-    "http://localhost:5173",
-    "http://localhost:3000",
-  ].filter(Boolean);
-
-  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+  if (!requestOrigin) return "";
+  if (requestOrigin.includes("lovable.app") ||
+    requestOrigin.includes("localhost") ||
+    requestOrigin.includes("127.0.0.1")) {
     return requestOrigin;
   }
-  return allowedOrigins[0] || "";
+  return Deno.env.get("ALLOWED_ORIGIN") || "https://ofibaexkxacahzftdodb.lovable.app";
 };
 
 const getCorsHeaders = (requestOrigin: string | null) => ({
@@ -114,7 +110,7 @@ serve(async (req) => {
       // Load PDF document
       const loadingTask = pdfjs.getDocument({ data: bytes });
       const pdfDoc = await loadingTask.promise;
-      
+
       // Extract text from all pages
       const textParts: string[] = [];
       for (let i = 1; i <= pdfDoc.numPages; i++) {

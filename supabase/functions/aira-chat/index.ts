@@ -2,17 +2,15 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const getAllowedOrigin = (requestOrigin: string | null): string => {
-  const allowedOrigins = [
-    Deno.env.get("ALLOWED_ORIGIN") || "",
-    "https://ofibaexkxacahzftdodb.lovable.app",
-    "http://localhost:5173",
-    "http://localhost:3000",
-  ].filter(Boolean);
-
-  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+  if (!requestOrigin) return "";
+  // Allow all Lovable preview domains and localhost
+  if (requestOrigin.includes("lovable.app") ||
+    requestOrigin.includes("localhost") ||
+    requestOrigin.includes("127.0.0.1")) {
     return requestOrigin;
   }
-  return allowedOrigins[0] || "";
+  // Fallback to configured allowed origin or specific approved domain
+  return Deno.env.get("ALLOWED_ORIGIN") || "https://ofibaexkxacahzftdodb.lovable.app";
 };
 
 const getCorsHeaders = (requestOrigin: string | null) => ({
