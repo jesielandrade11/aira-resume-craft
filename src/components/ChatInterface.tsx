@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Send, Paperclip, X, FileText, MessageSquare, Zap, Loader2, Wand2, Reply, Undo2, User, ChevronDown, Sparkles, Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -83,11 +84,19 @@ export function ChatInterface({
       setIsExtractingPdf(true);
       toast.info('Processando PDF...');
 
+      // Get fresh session token
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        toast.error('Sessão expirada. Faça login novamente.');
+        return null;
+      }
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           pdfBase64,

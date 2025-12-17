@@ -339,10 +339,11 @@ export function useAIRAChat({
             };
           });
 
-        // Get user session token
+        // Get fresh session token
         const { data: { session } } = await supabase.auth.getSession();
+
         if (!session?.access_token) {
-          throw new Error('Sessão expirada. Faça login novamente.');
+          throw new Error("Sessão expirada. Por favor, recarregue a página e faça login novamente.");
         }
 
         const resp = await fetch(CHAT_URL, {
