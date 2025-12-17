@@ -3,10 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import * as pdfjs from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/+esm";
 
 const getAllowedOrigin = (requestOrigin: string | null): string => {
-  if (!requestOrigin) return "";
+  if (!requestOrigin) return "https://ofibaexkxacahzftdodb.lovable.app";
+  // Allow all Lovable domains and localhost
   if (requestOrigin.includes("lovable.app") ||
-    requestOrigin.includes("localhost") ||
-    requestOrigin.includes("127.0.0.1")) {
+      requestOrigin.includes("lovableproject.com") ||
+      requestOrigin.includes("localhost") ||
+      requestOrigin.includes("127.0.0.1")) {
     return requestOrigin;
   }
   return Deno.env.get("ALLOWED_ORIGIN") || "https://ofibaexkxacahzftdodb.lovable.app";
@@ -89,10 +91,6 @@ serve(async (req) => {
         throw new Error("AI service not configured (Missing ANTHROPIC_API_KEY)");
       }
       console.log("Using Lovable API (Fallback)");
-      // ... keep Lovable logic if needed or just error. 
-      // For consistency, let's enforce Anthropic if that's what user says they connected.
-      // But to be safe, if they have Lovable key, we could use it. 
-      // However, refactoring to Anthropic is the goal.
       throw new Error("ANTHROPIC_API_KEY not configured. Please add your Anthropic API Key in Supabase Secrets.");
     }
 
@@ -110,7 +108,7 @@ serve(async (req) => {
       // Load PDF document
       const loadingTask = pdfjs.getDocument({ data: bytes });
       const pdfDoc = await loadingTask.promise;
-
+      
       // Extract text from all pages
       const textParts: string[] = [];
       for (let i = 1; i <= pdfDoc.numPages; i++) {
