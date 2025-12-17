@@ -476,7 +476,7 @@ export default function Editor() {
       activateJobMode();
       setTimeout(() => {
         sendMessage(
-          `[ANÁLISE DE COMPATIBILIDADE SOLICITADA]\n\nDescrição da vaga:\n${value}\n\nAnalise meu currículo atual em relação a esta vaga.`,
+          `[ANÁLISE DE COMPATIBILIDADE SOLICITADA]\n\n(Descrição da vaga atualizada no painel de contexto)`,
           undefined, 'planning'
         );
       }, 100);
