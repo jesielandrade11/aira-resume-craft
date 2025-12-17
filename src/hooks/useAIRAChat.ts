@@ -72,8 +72,16 @@ export function useAIRAChat({
           timestamp: new Date(),
         }]);
       }
+    } else if (!jobDescription && messages.length === 0) {
+      // Proactive Welcome Message
+      setMessages([{
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `Olá! Sou a AIRA, sua consultora de carreira. 💼\n\nPara criarmos um currículo assertivo, preciso de duas coisas:\n\n1. O **PDF do seu currículo atual** (clique no clipe 📎 para anexar).\n2. A **descrição da vaga** desejada (cole no painel à esquerda).\n\nSe ainda não tiver uma vaga específica, sem problemas! Podemos conversar para destacar suas melhores experiências. Como prefere começar?`,
+        timestamp: new Date(),
+      }]);
     }
-  }, [jobDescription]);
+  }, [jobDescription, messages.length]);
 
   const pushToUndoHistory = useCallback((currentResume: ResumeData) => {
     undoHistory.current = [
