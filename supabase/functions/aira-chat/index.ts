@@ -21,22 +21,42 @@ const getCorsHeaders = (requestOrigin: string | null) => ({
 // Authentication helper function
 async function authenticateUser(req: Request): Promise<{ user: any; error?: string }> {
   const authHeader = req.headers.get("Authorization");
+  console.log("[Auth] Header present:", !!authHeader);
+  
   if (!authHeader) {
+    console.error("[Auth] Missing authorization header");
     return { user: null, error: "Missing authorization header" };
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  // Log token format (just first/last chars for security)
+  const token = authHeader.replace("Bearer ", "");
+  console.log("[Auth] Token length:", token.length, "- starts with:", token.substring(0, 10) + "...");
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  
+  console.log("[Auth] Supabase URL:", supabaseUrl ? "present" : "MISSING");
+  console.log("[Auth] Supabase Anon Key:", supabaseAnonKey ? "present" : "MISSING");
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("[Auth] Missing Supabase environment variables");
+    return { user: null, error: "Server configuration error" };
+  }
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: authHeader } },
   });
 
   const { data: { user }, error } = await supabase.auth.getUser();
+  
+  console.log("[Auth] getUser result - user:", user?.id || "null", "error:", error?.message || "none");
+  
   if (error || !user) {
+    console.error("[Auth] Authentication failed:", error?.message || "No user returned");
     return { user: null, error: "Invalid or expired token" };
   }
 
+  console.log("[Auth] Success - user ID:", user.id);
   return { user };
 }
 
