@@ -5,9 +5,9 @@ const getAllowedOrigin = (requestOrigin: string | null): string => {
   if (!requestOrigin) return "https://ofibaexkxacahzftdodb.lovable.app";
   // Allow all Lovable domains and localhost
   if (requestOrigin.includes("lovable.app") ||
-      requestOrigin.includes("lovableproject.com") ||
-      requestOrigin.includes("localhost") ||
-      requestOrigin.includes("127.0.0.1")) {
+    requestOrigin.includes("lovableproject.com") ||
+    requestOrigin.includes("localhost") ||
+    requestOrigin.includes("127.0.0.1")) {
     return requestOrigin;
   }
   return Deno.env.get("ALLOWED_ORIGIN") || "https://ofibaexkxacahzftdodb.lovable.app";
@@ -22,7 +22,7 @@ const getCorsHeaders = (requestOrigin: string | null) => ({
 async function authenticateUser(req: Request): Promise<{ user: any; error?: string }> {
   const authHeader = req.headers.get("Authorization");
   console.log("[Auth] Header present:", !!authHeader);
-  
+
   if (!authHeader) {
     console.error("[Auth] Missing authorization header");
     return { user: null, error: "Missing authorization header" };
@@ -33,25 +33,25 @@ async function authenticateUser(req: Request): Promise<{ user: any; error?: stri
   console.log("[Auth] Token length:", token.length, "- starts with:", token.substring(0, 10) + "...");
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  
-  console.log("[Auth] Supabase URL:", supabaseUrl ? "present" : "MISSING");
-  console.log("[Auth] Supabase Service Key:", supabaseServiceKey ? "present" : "MISSING");
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
-  if (!supabaseUrl || !supabaseServiceKey) {
+  console.log("[Auth] Supabase URL:", supabaseUrl ? "present" : "MISSING");
+  console.log("[Auth] Supabase Anon Key:", supabaseAnonKey ? "present" : "MISSING");
+
+  if (!supabaseUrl || !supabaseAnonKey) {
     console.error("[Auth] Missing Supabase environment variables");
     return { user: null, error: "Server configuration error" };
   }
 
-  // Use service role key to validate user tokens
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  // Use anon key with user's auth header
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: authHeader } },
   });
 
   const { data: { user }, error } = await supabase.auth.getUser();
-  
+
   console.log("[Auth] getUser result - user:", user?.id || "null", "error:", error?.message || "none");
-  
+
   if (error || !user) {
     console.error("[Auth] Authentication failed:", error?.message || "No user returned");
     return { user: null, error: "Invalid or expired token" };
@@ -566,11 +566,11 @@ serve(async (req) => {
 
     // Map known safe errors, return generic message for unexpected errors
     const safeErrors: Record<string, string> = {
-      "ANTHROPIC_API_KEY is not configured": "Serviço temporariamente indisponível",
+      "ANTHROPIC_API_KEY is not configured": "Configuração incompleta: Adicione sua Chave de API da Anthropic (Supabase Secrets).",
       "Missing authorization header": "Não autorizado",
       "Invalid or expired token": "Sessão expirada, faça login novamente",
     };
-    const safeMessage = safeErrors[errorMessage] || "Erro ao processar solicitação";
+    const safeMessage = safeErrors[errorMessage] || `Erro: ${errorMessage}`;
 
     return new Response(JSON.stringify({ error: safeMessage }), {
       status: 500,

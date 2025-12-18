@@ -117,6 +117,9 @@ export function ChatInterface({
         return result.data;
       }
 
+      if (result.error) {
+        toast.error(result.error);
+      }
       return null;
     } catch (error) {
       console.error('PDF extraction error:', error);

@@ -6,9 +6,9 @@ const getAllowedOrigin = (requestOrigin: string | null): string => {
   if (!requestOrigin) return "https://ofibaexkxacahzftdodb.lovable.app";
   // Allow all Lovable domains and localhost
   if (requestOrigin.includes("lovable.app") ||
-      requestOrigin.includes("lovableproject.com") ||
-      requestOrigin.includes("localhost") ||
-      requestOrigin.includes("127.0.0.1")) {
+    requestOrigin.includes("lovableproject.com") ||
+    requestOrigin.includes("localhost") ||
+    requestOrigin.includes("127.0.0.1")) {
     return requestOrigin;
   }
   return Deno.env.get("ALLOWED_ORIGIN") || "https://ofibaexkxacahzftdodb.lovable.app";
@@ -108,7 +108,7 @@ serve(async (req) => {
       // Load PDF document
       const loadingTask = pdfjs.getDocument({ data: bytes });
       const pdfDoc = await loadingTask.promise;
-      
+
       // Extract text from all pages
       const textParts: string[] = [];
       for (let i = 1; i <= pdfDoc.numPages; i++) {
@@ -228,8 +228,10 @@ RETORNE APENAS O JSON (sem markdown, sem preâmbulo):
       "Sem resposta da IA": "Não foi possível extrair o conteúdo do PDF",
       "JSON Inválido": "Não foi possível processar a resposta do PDF",
       "PDF text extraction resulted in empty content (or scanned PDF without OCR).": "Não foi possível ler o texto do PDF. Se for uma imagem escaneada, tente converter para texto antes.",
+      "ANTHROPIC_API_KEY not configured. Please add your Anthropic API Key in Supabase Secrets.": "Configuração incompleta: Adicione sua Chave de API da Anthropic (Supabase Secrets).",
+      "AI service not configured (Missing ANTHROPIC_API_KEY)": "Configuração incompleta: Adicione sua Chave de API da Anthropic (Supabase Secrets).",
     };
-    const safeMessage = safeErrors[message] || "Erro ao processar PDF";
+    const safeMessage = safeErrors[message] || `Erro ao processar PDF: ${message}`;
 
     return new Response(JSON.stringify({
       success: false,
