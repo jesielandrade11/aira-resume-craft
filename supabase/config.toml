@@ -7,10 +7,10 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.aira-chat]
-verify_jwt = true
+verify_jwt = false
 
 [functions.extract-pdf]
-verify_jwt = true
+verify_jwt = false
 
 [functions.analyze-photo]
 verify_jwt = true
