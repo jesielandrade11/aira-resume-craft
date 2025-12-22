@@ -28,12 +28,16 @@ async function authenticateUser(req: Request): Promise<{ user: any; error?: stri
     return { user: null, error: "Missing authorization header" };
   }
 
-  // Log token type
-  const tokenType = authHeader.startsWith("Bearer ") ? "Bearer" : "Unknown";
-  console.log("[Auth] Token type:", tokenType);
+  if (!authHeader.startsWith("Bearer ")) {
+    console.error("[Auth] Invalid token format - not Bearer");
+    return { user: null, error: "Invalid token format" };
+  }
+
+  // Extract the JWT token from the header
+  const token = authHeader.replace("Bearer ", "");
+  console.log("[Auth] Token extracted, length:", token.length);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  // Use ANON KEY for user token validation (not service role key)
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -41,12 +45,11 @@ async function authenticateUser(req: Request): Promise<{ user: any; error?: stri
     return { user: null, error: "Server configuration error" };
   }
 
-  // Create client with ANON key and pass user's auth header
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
+  // Create client with ANON key
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  const { data: { user }, error } = await supabase.auth.getUser();
+  // Use getUser with the token directly - this is the correct way to validate a JWT
+  const { data: { user }, error } = await supabase.auth.getUser(token);
 
   console.log("[Auth] getUser result - user:", !!user, "error:", error?.message || "none");
 
