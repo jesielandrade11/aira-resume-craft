@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, WheelEvent } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import { ResumeData, emptyResume, exampleResume } from '@/types';
 import { ResumePreview } from '@/components/ResumePreview';
 import { ChatInterface } from '@/components/ChatInterface';
@@ -318,6 +319,11 @@ export default function Editor() {
   const [showBuyCreditsModal, setShowBuyCreditsModal] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
+  // Pan/drag state for resume preview
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [scrollStart, setScrollStart] = useState({ x: 0, y: 0 });
+
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const resumePreviewRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -590,6 +596,38 @@ export default function Editor() {
     }
   };
 
+  // Pan/drag handlers for resume preview
+  const handlePanStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Only start panning with left mouse button and not on interactive elements
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, input, textarea, [contenteditable]')) return;
+    
+    setIsPanning(true);
+    setPanStart({ x: e.clientX, y: e.clientY });
+    if (previewContainerRef.current) {
+      setScrollStart({ 
+        x: previewContainerRef.current.scrollLeft, 
+        y: previewContainerRef.current.scrollTop 
+      });
+    }
+    e.preventDefault();
+  };
+
+  const handlePanMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPanning || !previewContainerRef.current) return;
+    
+    const dx = panStart.x - e.clientX;
+    const dy = panStart.y - e.clientY;
+    
+    previewContainerRef.current.scrollLeft = scrollStart.x + dx;
+    previewContainerRef.current.scrollTop = scrollStart.y + dy;
+  };
+
+  const handlePanEnd = () => {
+    setIsPanning(false);
+  };
+
   const noCredits = !hasUnlimited() && userProfile.credits <= 0;
 
   return (
@@ -740,8 +778,15 @@ export default function Editor() {
 
             <div
               ref={previewContainerRef}
-              className="flex-1 overflow-auto p-8 print:p-0 print:overflow-visible flex justify-center"
+              className={cn(
+                "flex-1 overflow-auto p-8 print:p-0 print:overflow-visible flex justify-center",
+                isPanning ? "cursor-grabbing" : "cursor-grab"
+              )}
               onWheel={handleWheel}
+              onMouseDown={handlePanStart}
+              onMouseMove={handlePanMove}
+              onMouseUp={handlePanEnd}
+              onMouseLeave={handlePanEnd}
             >
               <div
                 ref={resumePreviewRef}
@@ -749,7 +794,8 @@ export default function Editor() {
                 style={{
                   transform: `scale(${zoom})`,
                   width: '210mm',
-                  height: 'max-content'
+                  height: 'max-content',
+                  pointerEvents: isPanning ? 'none' : 'auto'
                 }}
               >
                 <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />

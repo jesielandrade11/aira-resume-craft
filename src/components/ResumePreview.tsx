@@ -1,4 +1,4 @@
-import { ResumeData, ResumeExperience, ResumeEducation, ResumeSkill, ResumeStyles, defaultStyles, ResumeSectionTitles } from '@/types';
+import { ResumeData, ResumeExperience, ResumeEducation, ResumeSkill, ResumeLanguage, ResumeCertification, ResumeStyles, defaultStyles, ResumeSectionTitles } from '@/types';
 import { EditableText } from './EditableText';
 import { Mail, Phone, MapPin, Linkedin, Globe, Plus, Trash2, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -49,6 +49,49 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
 
   const removeSkill = (index: number) => {
     onUpdate({ skills: resume.skills.filter((_, i) => i !== index) });
+  };
+
+  // Language functions
+  const updateLanguage = (index: number, field: keyof ResumeLanguage, value: string) => {
+    const newLanguages = [...(resume.languages || [])];
+    newLanguages[index] = { ...newLanguages[index], [field]: value };
+    onUpdate({ languages: newLanguages });
+  };
+
+  const removeLanguage = (index: number) => {
+    onUpdate({ languages: (resume.languages || []).filter((_, i) => i !== index) });
+  };
+
+  const addLanguage = () => {
+    onUpdate({
+      languages: [...(resume.languages || []), {
+        id: crypto.randomUUID(),
+        name: '',
+        proficiency: 'Intermediário',
+      }],
+    });
+  };
+
+  // Certification functions
+  const updateCertification = (index: number, field: keyof ResumeCertification, value: string) => {
+    const newCertifications = [...(resume.certifications || [])];
+    newCertifications[index] = { ...newCertifications[index], [field]: value };
+    onUpdate({ certifications: newCertifications });
+  };
+
+  const removeCertification = (index: number) => {
+    onUpdate({ certifications: (resume.certifications || []).filter((_, i) => i !== index) });
+  };
+
+  const addCertification = () => {
+    onUpdate({
+      certifications: [...(resume.certifications || []), {
+        id: crypto.randomUUID(),
+        name: '',
+        issuer: '',
+        date: '',
+      }],
+    });
   };
 
   const addExperience = () => {
@@ -296,6 +339,77 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
     </section>
   );
 
+  // Languages Section
+  const LanguagesSection = ({ isDarkBackground = false }) => {
+    const languages = resume.languages || [];
+    if (languages.length === 0 && hoveredSection !== 'lang') return null;
+    
+    return (
+      <section className={cn("resume-section", getSectionSpacing())} onMouseEnter={() => setHoveredSection('lang')} onMouseLeave={() => setHoveredSection(null)}>
+        <div className="flex justify-between items-center mb-2">
+          <h3 className={sectionTitleStyle} style={{ color: isDarkBackground ? (styles.secondaryColor || '#fff') : styles.primaryColor, borderColor: isDarkBackground ? styles.secondaryColor : styles.primaryColor }}>
+            <EditableText
+              value={getSectionTitle('languages', 'IDIOMAS')}
+              onChange={(v) => updateSectionTitle('languages', v)}
+              className="uppercase"
+            />
+          </h3>
+          <Button variant="ghost" size="sm" onClick={addLanguage} className={cn("h-5 text-xs", isDarkBackground ? "text-white/50 hover:text-white" : "", hoveredSection === 'lang' ? 'opacity-100' : 'opacity-0')}><Plus className="w-3 h-3" /></Button>
+        </div>
+        <div className="space-y-2">
+          {languages.map((lang, i) => (
+            <div key={lang.id} className={cn("flex items-center justify-between gap-2 group", !lang.name && "print:hidden")}>
+              <div className="flex items-center gap-2 flex-1">
+                <EditableText value={lang.name} onChange={(v) => updateLanguage(i, 'name', v)} className={cn(getBodySize(), "font-medium")} placeholder="Idioma" />
+                <span className="opacity-50">-</span>
+                <EditableText value={lang.proficiency} onChange={(v) => updateLanguage(i, 'proficiency', v)} className={cn(getBodySize(), "opacity-80")} placeholder="Nível" />
+              </div>
+              <button onClick={() => removeLanguage(i)} className="opacity-0 group-hover:opacity-100 print:hidden"><Trash2 className="w-3 h-3 text-red-500" /></button>
+            </div>
+          ))}
+          {languages.length === 0 && <p className="text-gray-300 italic text-sm print:hidden">Adicione seus idiomas</p>}
+        </div>
+      </section>
+    );
+  };
+
+  // Certifications Section
+  const CertificationsSection = ({ isDarkBackground = false }) => {
+    const certifications = resume.certifications || [];
+    if (certifications.length === 0 && hoveredSection !== 'cert') return null;
+    
+    return (
+      <section className={cn("resume-section", getSectionSpacing())} onMouseEnter={() => setHoveredSection('cert')} onMouseLeave={() => setHoveredSection(null)}>
+        <div className="flex justify-between items-center mb-2">
+          <h3 className={sectionTitleStyle} style={{ color: isDarkBackground ? (styles.secondaryColor || '#fff') : styles.primaryColor, borderColor: isDarkBackground ? styles.secondaryColor : styles.primaryColor }}>
+            <EditableText
+              value={getSectionTitle('certifications', 'CERTIFICAÇÕES')}
+              onChange={(v) => updateSectionTitle('certifications', v)}
+              className="uppercase"
+            />
+          </h3>
+          <Button variant="ghost" size="sm" onClick={addCertification} className={cn("h-5 text-xs", isDarkBackground ? "text-white/50 hover:text-white" : "", hoveredSection === 'cert' ? 'opacity-100' : 'opacity-0')}><Plus className="w-3 h-3" /></Button>
+        </div>
+        <div className="space-y-2">
+          {certifications.map((cert, i) => (
+            <div key={cert.id} className={cn("group", !cert.name && "print:hidden")}>
+              <div className="flex items-center justify-between">
+                <EditableText value={cert.name} onChange={(v) => updateCertification(i, 'name', v)} className={cn(getBodySize(), "font-medium")} placeholder="Nome da certificação" />
+                <button onClick={() => removeCertification(i)} className="opacity-0 group-hover:opacity-100 print:hidden"><Trash2 className="w-3 h-3 text-red-500" /></button>
+              </div>
+              <div className="flex items-center gap-2 text-sm opacity-70">
+                <EditableText value={cert.issuer} onChange={(v) => updateCertification(i, 'issuer', v)} className={getBodySize()} placeholder="Emissor" />
+                {(cert.issuer || cert.date) && <span>•</span>}
+                <EditableText value={cert.date} onChange={(v) => updateCertification(i, 'date', v)} className={getBodySize()} placeholder="Ano" isDate />
+              </div>
+            </div>
+          ))}
+          {certifications.length === 0 && <p className="text-gray-300 italic text-sm print:hidden">Adicione suas certificações</p>}
+        </div>
+      </section>
+    );
+  };
+
   // --- LAYOUTS ---
 
   if (!hasContent) {
@@ -349,6 +463,8 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
 
             <div className="text-right">
               <SkillsSection isDarkBackground={true} />
+              <LanguagesSection isDarkBackground={true} />
+              <CertificationsSection isDarkBackground={true} />
             </div>
           </div>
         </div>
@@ -368,6 +484,8 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
           </div>
           <div>
             <SkillsSection />
+            <LanguagesSection />
+            <CertificationsSection />
           </div>
         </aside>
         <main className="flex-1 p-8" style={{ backgroundColor: mainBg }}>
@@ -409,6 +527,8 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
       <ExperienceSection />
       <EducationSection />
       <SkillsSection />
+      <LanguagesSection />
+      <CertificationsSection />
     </div>
   );
 }
