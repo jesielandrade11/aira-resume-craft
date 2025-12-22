@@ -175,7 +175,7 @@ RETORNE APENAS O JSON (sem markdown, sem preâmbulo):
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-3-5-sonnet-20241022",
+        model: "claude-sonnet-4-5-20250929",
         max_tokens: 4096,
         temperature: 0,
         system: systemPrompt,
