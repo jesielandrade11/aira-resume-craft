@@ -33,18 +33,18 @@ async function authenticateUser(req: Request): Promise<{ user: any; error?: stri
   console.log("[Auth] Token length:", token.length, "- starts with:", token.substring(0, 10) + "...");
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   console.log("[Auth] Supabase URL:", supabaseUrl ? "present" : "MISSING");
-  console.log("[Auth] Supabase Anon Key:", supabaseAnonKey ? "present" : "MISSING");
+  console.log("[Auth] Supabase Service Key:", supabaseServiceKey ? "present" : "MISSING");
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabaseServiceKey) {
     console.error("[Auth] Missing Supabase environment variables");
     return { user: null, error: "Server configuration error" };
   }
 
-  // Use anon key with user's auth header
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  // Use service role key to validate user's JWT token
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     global: { headers: { Authorization: authHeader } },
   });
 
