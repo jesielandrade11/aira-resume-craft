@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import * as pdfjs from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/+esm";
 
 const getAllowedOrigin = (requestOrigin: string | null): string => {
   if (!requestOrigin) return "https://ofibaexkxacahzftdodb.lovable.app";
@@ -68,7 +67,7 @@ serve(async (req) => {
     // Create client with ANON key
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Use getUser with the token directly - this is the correct way to validate a JWT
+    // Use getUser with the token directly
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     console.log("[Auth] getUser result - user:", !!user, "error:", authError?.message || "none");
     
@@ -115,70 +114,29 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // 3. EXTRACT TEXT FROM PDF
-    console.log("Extracting text from PDF via pdfjs-dist...");
-    let extractedText = "";
-    try {
-      // Decode base64 to Uint8Array
-      const binaryString = atob(base64Data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      // Load PDF document
-      const loadingTask = pdfjs.getDocument({ data: bytes });
-      const pdfDoc = await loadingTask.promise;
-
-      // Extract text from all pages
-      const textParts: string[] = [];
-      for (let i = 1; i <= pdfDoc.numPages; i++) {
-        const page = await pdfDoc.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: { str?: string }) => item.str || '')
-          .join(' ');
-        textParts.push(pageText);
-      }
-      extractedText = textParts.join('\n\n');
-
-      if (!extractedText || extractedText.trim().length < 50) {
-        throw new Error("PDF text extraction resulted in empty content (or scanned PDF without OCR).");
-      }
-      console.log(`Extracted ${extractedText.length} characters from PDF.`);
-    } catch (parseError) {
-      console.error("PDF Parse Error:", parseError);
-      return new Response(JSON.stringify({
-        success: false,
-        error: "Não foi possível ler o texto do PDF. Se for uma imagem escaneada, tente converter para texto antes.",
-        needsManualInput: true
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 4. ASK AI TO PARSE STRUCTURE (USING LOVABLE AI GATEWAY)
-    console.log("Sending text to Lovable AI for structuring...");
-    const systemPrompt = "Você é um especialista em extração de dados de currículos. Sua tarefa é extrair informações de um texto cru (extraído de PDF) e transformar em JSON estruturado.";
-    const userPrompt = `Analise o TEXTO abaixo e transforme em um JSON estruturado.
+    // 3. USE AI TO EXTRACT AND STRUCTURE PDF CONTENT
+    // Since pdfjs-dist doesn't work well in Deno, we'll send the base64 directly to AI
+    // Gemini can process PDF documents natively
+    console.log("Sending PDF to Lovable AI for extraction...");
     
-TEXTO DO CURRÍCULO:
-"""
-${extractedText.substring(0, 30000)}
-"""
+    const systemPrompt = `Você é um especialista em extração de dados de currículos. Sua tarefa é analisar o documento PDF fornecido e extrair as informações em JSON estruturado.
 
-INSTRUÇÕES:
-Extraia com o máximo de detalhes possível:
-- Nome completo, Email, Telefone, Localização, LinkedIn, Resumo
-- Experiências (Empresa, Cargo, Datas, Descrição rica)
-- Formação (Instituição, Curso, Datas)
-- Habilidades (Liste todas)
-- Idiomas, Certificações
+IMPORTANTE: Analise o conteúdo do PDF cuidadosamente e extraia TODOS os dados disponíveis.`;
+
+    const userPrompt = `Analise este documento PDF de currículo e extraia todas as informações em formato JSON estruturado.
 
 ${jobDescription ? `\nCONTEXTO DA VAGA: ${jobDescription.substring(0, 2000)}` : ''}
 
-RETORNE APENAS O JSON (sem markdown, sem preâmbulo):
+INSTRUÇÕES:
+Extraia com o máximo de detalhes possível:
+- Nome completo, Email, Telefone, Localização, LinkedIn, Resumo/Objetivo
+- Experiências profissionais (Empresa, Cargo, Datas, Descrição detalhada)
+- Formação acadêmica (Instituição, Curso, Datas)
+- Habilidades técnicas e comportamentais
+- Idiomas com nível de proficiência
+- Certificações
+
+RETORNE APENAS O JSON (sem markdown, sem explicações):
 {
   "personalInfo": { "fullName": "...", "email": "...", "phone": "...", "location": "...", "linkedin": "...", "summary": "..." },
   "experience": [{ "company": "...", "position": "...", "startDate": "...", "endDate": "...", "description": "..." }],
@@ -188,6 +146,7 @@ RETORNE APENAS O JSON (sem markdown, sem preâmbulo):
   "certifications": [{ "name": "...", "issuer": "...", "date": "..." }]
 }`;
 
+    // Send PDF as base64 inline data to Gemini (it can process PDFs natively)
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -198,7 +157,22 @@ RETORNE APENAS O JSON (sem markdown, sem preâmbulo):
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
+          { 
+            role: "user", 
+            content: [
+              {
+                type: "file",
+                file: {
+                  filename: "resume.pdf",
+                  file_data: `data:application/pdf;base64,${base64Data}`
+                }
+              },
+              {
+                type: "text",
+                text: userPrompt
+              }
+            ]
+          }
         ],
       }),
     });
@@ -220,7 +194,12 @@ RETORNE APENAS O JSON (sem markdown, sem preâmbulo):
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content;
 
-    if (!content) throw new Error("Sem resposta da IA");
+    if (!content) {
+      console.error("No content in AI response");
+      throw new Error("Sem resposta da IA");
+    }
+
+    console.log("AI response received, parsing JSON...");
 
     // Clean JSON
     let cleanContent = content.trim();
@@ -233,10 +212,17 @@ RETORNE APENAS O JSON (sem markdown, sem preâmbulo):
     let extractedData;
     try {
       extractedData = JSON.parse(cleanContent);
+      console.log("Successfully parsed resume data");
     } catch {
+      // Try to find JSON in the response
       const match = cleanContent.match(/\{[\s\S]*\}/);
-      if (match) extractedData = JSON.parse(match[0]);
-      else throw new Error("JSON Inválido");
+      if (match) {
+        extractedData = JSON.parse(match[0]);
+        console.log("Extracted JSON from response");
+      } else {
+        console.error("Failed to parse JSON from response:", cleanContent.substring(0, 500));
+        throw new Error("JSON Inválido");
+      }
     }
 
     return new Response(JSON.stringify({
@@ -255,14 +241,13 @@ RETORNE APENAS O JSON (sem markdown, sem preâmbulo):
       "LOVABLE_API_KEY is not configured": "Serviço temporariamente indisponível",
       "Sem resposta da IA": "Não foi possível extrair o conteúdo do PDF",
       "JSON Inválido": "Não foi possível processar a resposta do PDF",
-      "PDF text extraction resulted in empty content (or scanned PDF without OCR).": "Não foi possível ler o texto do PDF. Se for uma imagem escaneada, tente converter para texto antes.",
     };
     const safeMessage = safeErrors[message] || `Erro ao processar PDF: ${message}`;
 
     return new Response(JSON.stringify({
       success: false,
       error: safeMessage,
-      needsManualInput: message === "PDF text extraction resulted in empty content (or scanned PDF without OCR)."
+      needsManualInput: true
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
