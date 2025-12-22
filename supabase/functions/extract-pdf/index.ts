@@ -4,7 +4,6 @@ import * as pdfjs from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/+esm";
 
 const getAllowedOrigin = (requestOrigin: string | null): string => {
   if (!requestOrigin) return "https://ofibaexkxacahzftdodb.lovable.app";
-  // Allow all Lovable domains and localhost
   if (requestOrigin.includes("lovable.app") ||
     requestOrigin.includes("lovableproject.com") ||
     requestOrigin.includes("localhost") ||
@@ -42,8 +41,8 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
@@ -83,15 +82,10 @@ serve(async (req) => {
       );
     }
 
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) {
-      // Fallback to LOVABLE if available, otherwise error
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (!LOVABLE_API_KEY) {
-        throw new Error("AI service not configured (Missing ANTHROPIC_API_KEY)");
-      }
-      console.log("Using Lovable API (Fallback)");
-      throw new Error("ANTHROPIC_API_KEY not configured. Please add your Anthropic API Key in Supabase Secrets.");
+    // Use Lovable AI Gateway (no external API key needed)
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     // 3. EXTRACT TEXT FROM PDF
@@ -137,8 +131,8 @@ serve(async (req) => {
       });
     }
 
-    // 4. ASK AI TO PARSE STRUCTURE (USING CLAUDE)
-    console.log("Sending text to Claude for structuring...");
+    // 4. ASK AI TO PARSE STRUCTURE (USING LOVABLE AI GATEWAY)
+    console.log("Sending text to Lovable AI for structuring...");
     const systemPrompt = "Você é um especialista em extração de dados de currículos. Sua tarefa é extrair informações de um texto cru (extraído de PDF) e transformar em JSON estruturado.";
     const userPrompt = `Analise o TEXTO abaixo e transforme em um JSON estruturado.
     
@@ -167,30 +161,37 @@ RETORNE APENAS O JSON (sem markdown, sem preâmbulo):
   "certifications": [{ "name": "...", "issuer": "...", "date": "..." }]
 }`;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-opus-4-5-20251101",
-        max_tokens: 4096,
-        temperature: 0,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }]
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Claude API error:", response.status, errorText);
+      console.error("Lovable AI API error:", response.status, errorText);
+      
+      if (response.status === 429) {
+        throw new Error("Limite de requisições excedido. Tente novamente em alguns segundos.");
+      }
+      if (response.status === 402) {
+        throw new Error("Créditos insuficientes. Entre em contato com o suporte.");
+      }
+      
       throw new Error(`AI service error: ${response.status}`);
     }
 
     const aiResponse = await response.json();
-    const content = aiResponse.content?.[0]?.text;
+    const content = aiResponse.choices?.[0]?.message?.content;
 
     if (!content) throw new Error("Sem resposta da IA");
 
@@ -222,14 +223,12 @@ RETORNE APENAS O JSON (sem markdown, sem preâmbulo):
     const message = e instanceof Error ? e.message : "Erro desconhecido";
     console.error("Function error:", message);
 
-    // Map known safe errors, return generic message for unexpected errors
+    // Map known safe errors
     const safeErrors: Record<string, string> = {
-      "AI service not configured": "Serviço temporariamente indisponível",
+      "LOVABLE_API_KEY is not configured": "Serviço temporariamente indisponível",
       "Sem resposta da IA": "Não foi possível extrair o conteúdo do PDF",
       "JSON Inválido": "Não foi possível processar a resposta do PDF",
       "PDF text extraction resulted in empty content (or scanned PDF without OCR).": "Não foi possível ler o texto do PDF. Se for uma imagem escaneada, tente converter para texto antes.",
-      "ANTHROPIC_API_KEY not configured. Please add your Anthropic API Key in Supabase Secrets.": "Configuração incompleta: Adicione sua Chave de API da Anthropic (Supabase Secrets).",
-      "AI service not configured (Missing ANTHROPIC_API_KEY)": "Configuração incompleta: Adicione sua Chave de API da Anthropic (Supabase Secrets).",
     };
     const safeMessage = safeErrors[message] || `Erro ao processar PDF: ${message}`;
 

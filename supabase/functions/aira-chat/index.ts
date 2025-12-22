@@ -3,7 +3,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const getAllowedOrigin = (requestOrigin: string | null): string => {
   if (!requestOrigin) return "https://ofibaexkxacahzftdodb.lovable.app";
-  // Allow all Lovable domains and localhost
   if (requestOrigin.includes("lovable.app") ||
     requestOrigin.includes("lovableproject.com") ||
     requestOrigin.includes("localhost") ||
@@ -21,43 +20,31 @@ const getCorsHeaders = (requestOrigin: string | null) => ({
 // Authentication helper function
 async function authenticateUser(req: Request): Promise<{ user: any; error?: string }> {
   const authHeader = req.headers.get("Authorization");
-  console.log("[Auth] Header present:", !!authHeader);
-
+  
   if (!authHeader) {
     console.error("[Auth] Missing authorization header");
     return { user: null, error: "Missing authorization header" };
   }
 
-  // Log token format (just first/last chars for security)
-  const token = authHeader.replace("Bearer ", "");
-  console.log("[Auth] Token length:", token.length, "- starts with:", token.substring(0, 10) + "...");
-
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-  console.log("[Auth] Supabase URL:", supabaseUrl ? "present" : "MISSING");
-  console.log("[Auth] Supabase Service Key:", supabaseServiceKey ? "present" : "MISSING");
 
   if (!supabaseUrl || !supabaseServiceKey) {
     console.error("[Auth] Missing Supabase environment variables");
     return { user: null, error: "Server configuration error" };
   }
 
-  // Use service role key to validate user's JWT token
   const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     global: { headers: { Authorization: authHeader } },
   });
 
   const { data: { user }, error } = await supabase.auth.getUser();
 
-  console.log("[Auth] getUser result - user:", user?.id || "null", "error:", error?.message || "none");
-
   if (error || !user) {
     console.error("[Auth] Authentication failed:", error?.message || "No user returned");
     return { user: null, error: "Invalid or expired token" };
   }
 
-  console.log("[Auth] Success - user ID:", user.id);
   return { user };
 }
 
@@ -273,10 +260,11 @@ serve(async (req) => {
     console.log("Authenticated user:", user.id);
 
     const { messages, resume, userProfile, jobDescription, attachments, mode = 'planning' } = await req.json();
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error("ANTHROPIC_API_KEY is not configured");
+    
+    // Use Lovable AI Gateway (no external API key needed)
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     console.log("Chat mode:", mode);
@@ -293,7 +281,6 @@ serve(async (req) => {
       }
     }
 
-    // Select system prompt based on mode
     // Build context message
     let contextMessage = "";
 
@@ -354,101 +341,84 @@ serve(async (req) => {
       contextMessage += `\n\n📄 CURRÍCULO ATUAL:\n${resumeStr}\n`;
     }
 
-    // Transform messages to Claude format - FILTER OUT EMPTY MESSAGES
-    const claudeMessages = messages
+    // Transform messages to Lovable AI format (OpenAI compatible)
+    const aiMessages = messages
       .filter((msg: any) => {
-        // Filter out messages with empty or whitespace-only content
         const textContent = typeof msg.content === 'string' ? msg.content.trim() : '';
         const hasTextContent = textContent.length > 0;
         const hasAttachments = msg.attachments && msg.attachments.length > 0;
         return hasTextContent || hasAttachments;
       })
       .map((msg: any) => {
-        const content: any[] = [];
         const textContent = typeof msg.content === 'string' ? msg.content.trim() : '';
-
-        if (textContent.length > 0) {
-          content.push({ type: "text", text: textContent });
-        }
-
+        
+        // For Lovable AI, we use simple text content (Gemini format)
+        // If there are image attachments, append description
+        let content = textContent;
+        
         if (msg.attachments && msg.attachments.length > 0) {
           for (const attachment of msg.attachments) {
-            if (attachment.type === 'image' && attachment.base64) {
-              // Remove data:image/xxx;base64, prefix if present
-              const base64Data = attachment.base64.includes(',')
-                ? attachment.base64.split(',')[1]
-                : attachment.base64;
-              const mimeType = attachment.base64.includes(';')
-                ? attachment.base64.split(';')[0].split(':')[1]
-                : 'image/jpeg';
-
-              content.push({
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: mimeType,
-                  data: base64Data
-                }
-              });
+            if (attachment.type === 'image') {
+              content += "\n[Imagem anexada pelo usuário]";
             }
           }
         }
 
-        // Ensure content array is not empty - use meaningful placeholder
-        if (content.length === 0) {
-          content.push({ type: "text", text: "[Mensagem sem conteúdo]" });
-        }
-
         return {
           role: msg.role === 'assistant' ? 'assistant' : 'user',
-          content
+          content: content || "[Mensagem sem conteúdo]"
         };
       })
-      .filter((msg: any) => {
-        // Final filter: ensure all messages have valid text content
-        return msg.content.some((c: any) => c.type === 'text' && c.text && c.text.trim().length > 0);
-      });
+      .filter((msg: any) => msg.content && msg.content.trim().length > 0);
 
     // Limit messages to last 10 for performance
-    let limitedMessages = claudeMessages.slice(-10);
-    console.log("Sending request to Claude API with", limitedMessages.length, "messages (limited from", claudeMessages.length, ")");
+    let limitedMessages = aiMessages.slice(-10);
+    console.log("Sending request to Lovable AI with", limitedMessages.length, "messages");
+
+    // Add system message at the beginning
+    const fullMessages = [
+      { role: "system", content: systemPrompt + contextMessage },
+      ...limitedMessages
+    ];
 
     // PREFILLING: In generate mode, add assistant message to force JSON output
     if (mode === 'generate') {
-      limitedMessages = [
-        ...limitedMessages,
-        {
-          role: 'assistant',
-          content: [{ type: 'text', text: GENERATE_PREFILL }]
-        }
-      ];
+      fullMessages.push({
+        role: 'assistant',
+        content: GENERATE_PREFILL
+      });
       console.log("Using PREFILL technique to force JSON output");
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    console.log("Calling Lovable AI Gateway...");
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-opus-4-5-20251101",
-        max_tokens: 4096,
-        temperature: mode === 'generate' ? 0.1 : 0.7, // Low temp for predictable JSON
-        system: systemPrompt + contextMessage,
-        messages: limitedMessages,
+        model: "google/gemini-2.5-flash",
+        messages: fullMessages,
         stream: true,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Claude API error:", response.status, errorText);
+      console.error("Lovable AI API error:", response.status, errorText);
 
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
           status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Créditos insuficientes. Entre em contato com o suporte." }), {
+          status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -459,100 +429,8 @@ serve(async (req) => {
       });
     }
 
-    // Create a TransformStream to convert Claude's SSE stream to our expected format
-    const { readable, writable } = new TransformStream();
-    const writer = writable.getWriter();
-    const reader = response.body?.getReader();
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-
-    if (!reader) {
-      throw new Error("No response body from Claude API");
-    }
-
-    // Process the stream in the background
-    (async () => {
-      try {
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-
-          // Process complete lines
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const jsonStr = line.slice(6);
-              if (jsonStr === '[DONE]') continue;
-
-              try {
-                const parsed = JSON.parse(jsonStr);
-
-                // Handle different Claude event types
-                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                  // Convert to our expected SSE format
-                  const sseData = {
-                    choices: [{
-                      delta: {
-                        content: parsed.delta.text
-                      }
-                    }]
-                  };
-                  await writer.write(encoder.encode(`data: ${JSON.stringify(sseData)}\n\n`));
-                } else if (parsed.type === 'message_stop') {
-                  await writer.write(encoder.encode('data: [DONE]\n\n'));
-                }
-              } catch (e) {
-                // Skip unparseable lines
-              }
-            }
-          }
-        }
-
-        // Process remaining buffer
-        if (buffer.trim()) {
-          const lines = buffer.split('\n');
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const jsonStr = line.slice(6);
-              if (jsonStr === '[DONE]') continue;
-              try {
-                const parsed = JSON.parse(jsonStr);
-                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                  const sseData = {
-                    choices: [{
-                      delta: {
-                        content: parsed.delta.text
-                      }
-                    }]
-                  };
-                  await writer.write(encoder.encode(`data: ${JSON.stringify(sseData)}\n\n`));
-                }
-              } catch (e) {
-                // Skip
-              }
-            }
-          }
-        }
-
-        await writer.write(encoder.encode('data: [DONE]\n\n'));
-        await writer.close();
-      } catch (error) {
-        console.error("Stream processing error:", error);
-        try {
-          await writer.abort(error);
-        } catch (e) {
-          // Writer already closed
-        }
-      }
-    })();
-
-    return new Response(readable, {
+    // Stream response directly (Lovable AI already uses OpenAI-compatible SSE format)
+    return new Response(response.body, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'text/event-stream',
@@ -564,9 +442,8 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Error in aira-chat function:", errorMessage);
 
-    // Map known safe errors, return generic message for unexpected errors
     const safeErrors: Record<string, string> = {
-      "ANTHROPIC_API_KEY is not configured": "Configuração incompleta: Adicione sua Chave de API da Anthropic (Supabase Secrets).",
+      "LOVABLE_API_KEY is not configured": "Configuração do servidor incompleta",
       "Missing authorization header": "Não autorizado",
       "Invalid or expired token": "Sessão expirada, faça login novamente",
     };
