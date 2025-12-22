@@ -42,39 +42,47 @@ const syncResumeToProfile = (resumeData: ResumeData, currentProfile: UserProfile
   if (resumeData.personalInfo.summary && resumeData.personalInfo.summary !== currentProfile.bio) { updates.bio = resumeData.personalInfo.summary; hasUpdates = true; }
 
   // 2. Experiences - UPSERT (Update existing or Insert new)
-  const existingExps = currentProfile.experiences || [];
-  const resumeExps = resumeData.experience || [];
+  const existingExps = (currentProfile.experiences || []).filter(exp => exp && exp.company && exp.position);
+  const resumeExps = (resumeData.experience || []).filter(exp => exp && exp.company && exp.position);
 
   if (resumeExps.length > 0) {
     const mergedExps = [...existingExps];
     let expChanged = false;
 
     resumeExps.forEach(rExp => {
-      const existingIndex = mergedExps.findIndex(pExp =>
-        pExp.company.toLowerCase().trim() === rExp.company.toLowerCase().trim() &&
-        pExp.position.toLowerCase().trim() === rExp.position.toLowerCase().trim()
-      );
+      const rCompany = (rExp.company || '').toLowerCase().trim();
+      const rPosition = (rExp.position || '').toLowerCase().trim();
+      
+      // Find by exact match OR by similar company name (handles "CONAG" vs "CONAG Agro Soluções")
+      const existingIndex = mergedExps.findIndex(pExp => {
+        const pCompany = (pExp.company || '').toLowerCase().trim();
+        const pPosition = (pExp.position || '').toLowerCase().trim();
+        
+        // Exact match
+        if (pCompany === rCompany && pPosition === rPosition) return true;
+        
+        // Partial company match with same position type
+        const companySimilar = pCompany.includes(rCompany) || rCompany.includes(pCompany);
+        const positionSimilar = pPosition.includes(rPosition) || rPosition.includes(pPosition) ||
+          pPosition.split(' ')[0] === rPosition.split(' ')[0]; // Same first word (e.g., "Consultor")
+        
+        return companySimilar && positionSimilar;
+      });
 
+      const endDate = rExp.endDate || '';
       const newExpData = {
         company: rExp.company,
         position: rExp.position,
         startDate: rExp.startDate,
-        endDate: rExp.endDate,
-        current: rExp.endDate.toLowerCase().includes('atual') || rExp.endDate.toLowerCase().includes('present'),
+        endDate: endDate,
+        current: endDate.toLowerCase().includes('atual') || endDate.toLowerCase().includes('present'),
         description: rExp.description
       };
 
       if (existingIndex >= 0) {
-        // Update existing if different
-        const current = mergedExps[existingIndex];
-        if (
-          current.description !== newExpData.description ||
-          current.startDate !== newExpData.startDate ||
-          current.endDate !== newExpData.endDate
-        ) {
-          mergedExps[existingIndex] = newExpData;
-          expChanged = true;
-        }
+        // Update existing - replace with new data
+        mergedExps[existingIndex] = newExpData;
+        expChanged = true;
       } else {
         // Insert new
         mergedExps.push(newExpData);
