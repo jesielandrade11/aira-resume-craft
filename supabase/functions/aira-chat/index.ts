@@ -21,30 +21,41 @@ const getCorsHeaders = (requestOrigin: string | null) => ({
 async function authenticateUser(req: Request): Promise<{ user: any; error?: string }> {
   const authHeader = req.headers.get("Authorization");
   
+  console.log("[Auth] Authorization header present:", !!authHeader);
+  
   if (!authHeader) {
     console.error("[Auth] Missing authorization header");
     return { user: null, error: "Missing authorization header" };
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  // Log token type
+  const tokenType = authHeader.startsWith("Bearer ") ? "Bearer" : "Unknown";
+  console.log("[Auth] Token type:", tokenType);
 
-  if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("[Auth] Missing Supabase environment variables");
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  // Use ANON KEY for user token validation (not service role key)
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("[Auth] Missing Supabase environment variables - URL:", !!supabaseUrl, "ANON_KEY:", !!supabaseAnonKey);
     return { user: null, error: "Server configuration error" };
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  // Create client with ANON key and pass user's auth header
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: authHeader } },
   });
 
   const { data: { user }, error } = await supabase.auth.getUser();
+
+  console.log("[Auth] getUser result - user:", !!user, "error:", error?.message || "none");
 
   if (error || !user) {
     console.error("[Auth] Authentication failed:", error?.message || "No user returned");
     return { user: null, error: "Invalid or expired token" };
   }
 
+  console.log("[Auth] User authenticated successfully:", user.id);
   return { user };
 }
 

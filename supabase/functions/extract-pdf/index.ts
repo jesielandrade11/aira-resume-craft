@@ -32,37 +32,49 @@ serve(async (req) => {
   try {
     // 1. VERIFY AUTHENTICATION
     const authHeader = req.headers.get("Authorization");
+    console.log("[Auth] Authorization header present:", !!authHeader);
+    
     if (!authHeader) {
-      console.error("Missing authorization header");
+      console.error("[Auth] Missing authorization header");
       return new Response(
         JSON.stringify({ success: false, error: "Missing authorization" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // Log token type
+    const tokenType = authHeader.startsWith("Bearer ") ? "Bearer" : "Unknown";
+    console.log("[Auth] Token type:", tokenType);
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    // Use ANON KEY for user token validation (not service role key)
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
     
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("Missing Supabase env vars");
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("[Auth] Missing Supabase env vars - URL:", !!supabaseUrl, "ANON_KEY:", !!supabaseAnonKey);
       return new Response(
         JSON.stringify({ success: false, error: "Server configuration error" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    // Create client with ANON key and pass user's auth header
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+    console.log("[Auth] getUser result - user:", !!user, "error:", authError?.message || "none");
+    
     if (authError || !user) {
-      console.error("Authentication failed:", authError?.message);
+      console.error("[Auth] Authentication failed:", authError?.message);
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    console.log("[Auth] User authenticated:", user.id);
 
     // 2. PARSE AND VALIDATE INPUT
     const { pdfBase64, jobDescription } = await req.json();
