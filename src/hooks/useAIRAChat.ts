@@ -112,7 +112,6 @@ export function useAIRAChat({
     if (!content.includes('```resume_update') && content.trim().startsWith('"action"')) {
       // Claude continued from prefill, reconstruct the full block
       processedContent = `[[STATUS: Aplicando mudanças...]]\n\n\`\`\`resume_update\n{${content}`;
-      console.log('[AIRA] 🔄 Reconstructed prefill content');
     }
 
     // Multiple regex patterns to catch all variations
@@ -138,7 +137,6 @@ export function useAIRAChat({
       if (fallbackMatch) {
         resumeMatch = [fallbackMatch[0], fallbackMatch[0]];
         matchedPattern = 99; // Fallback pattern
-        console.log('[AIRA] 🔄 Using fallback JSON extraction');
       }
     }
 
@@ -149,8 +147,6 @@ export function useAIRAChat({
       if (matchedPattern === 99) {
         jsonStr = resumeMatch[0];
       }
-
-      console.log('[AIRA] 🔍 Found resume_update (pattern', matchedPattern, '), length:', jsonStr.length);
 
       // Check if JSON looks complete
       const openBraces = (jsonStr.match(/\{/g) || []).length;
@@ -175,21 +171,16 @@ export function useAIRAChat({
             }
 
             if (updateData.action === 'update' && updateData.data) {
-              console.log('[AIRA] ✅ APPLYING UPDATE:', Object.keys(updateData.data));
               appliedUpdatesRef.current.add(updateHash);
               pushToUndoHistory(currentResume);
               onResumeUpdate(updateData.data);
               toast.success('✓ Currículo atualizado!');
             }
           } catch (e) {
-            if (isFinal) {
-              console.error('[AIRA] ❌ JSON parse error:', e);
-            }
+            // JSON parse error - skip silently
           }
         }
       }
-    } else if (isFinal && processedContent.includes('"data"')) {
-      console.warn('[AIRA] ⚠️ No valid block found but content has data');
     }
 
     // Check for profile updates
@@ -215,14 +206,11 @@ export function useAIRAChat({
         if (!appliedUpdatesRef.current.has(updateHash)) {
           try {
             const profileData = JSON.parse(jsonStr);
-            console.log('[AIRA] ✅ Applying profile update:', profileData);
             appliedUpdatesRef.current.add(updateHash);
             onProfileUpdate(profileData);
             profileUpdated = true;
           } catch (e) {
-            if (isFinal) {
-              console.error('[AIRA] ❌ Profile JSON parse error:', e);
-            }
+            // Profile JSON parse error - skip silently
           }
         }
       }
@@ -407,13 +395,11 @@ export function useAIRAChat({
             upsertAssistant('', true);
           }
         } catch (streamErr) {
-          console.warn('Stream interrupted:', streamErr);
           streamError = true;
         }
 
         // Check if we got a partial response with resume_update - apply it even if stream failed
         if (streamError && assistantContent.includes('```resume_update')) {
-          console.log('Applying partial resume_update despite stream error');
           parseAIResponse(assistantContent, resumeRef.current, true);
         }
 
@@ -428,7 +414,6 @@ export function useAIRAChat({
       } catch (error) {
         lastError = error as Error;
         retryCount++;
-        console.error(`Chat error (attempt ${retryCount}/${MAX_RETRIES + 1}):`, error);
 
         if (retryCount <= MAX_RETRIES) {
           setThinkingStatus(`Reconectando... (tentativa ${retryCount + 1})`);

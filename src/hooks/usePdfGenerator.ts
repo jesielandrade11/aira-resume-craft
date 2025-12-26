@@ -20,7 +20,6 @@ export function usePdfGenerator() {
     // For native print, we don't generate blobs programmatically without user interaction
     // allowing the browser to handle the "Save as PDF" provides the best vector quality.
     // This function is kept for signature compatibility but fundamentally changes behavior.
-    console.log("Vector PDF export initiated via native print");
     return null;
   }, []);
 
@@ -37,7 +36,6 @@ export function usePdfGenerator() {
       window.print();
       return true;
     } catch (e) {
-      console.error("Print error:", e);
       return false;
     } finally {
       // Restore title after a small delay to ensure print dialog picked it up

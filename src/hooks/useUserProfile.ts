@@ -83,7 +83,7 @@ export function useUserProfile() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(loadedProfile));
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      // Profile fetch error - silent
     } finally {
       setIsLoading(false);
     }
@@ -139,7 +139,6 @@ export function useUserProfile() {
       
       toast.success('Perfil atualizado!');
     } catch (error) {
-      console.error('Error updating profile:', error);
       toast.error('Erro ao salvar perfil');
     } finally {
       setIsSaving(false);
@@ -163,12 +162,10 @@ export function useUserProfile() {
       });
 
       if (error) {
-        console.error('Error using credits:', error);
         return false;
       }
 
       if (data?.error) {
-        console.error('Credit operation failed:', data.error);
         return false;
       }
 
@@ -179,7 +176,6 @@ export function useUserProfile() {
 
       return data?.success === true;
     } catch (error) {
-      console.error('Error calling use-credits function:', error);
       return false;
     }
   }, [user]);
@@ -202,7 +198,7 @@ export function useUserProfile() {
         }));
       }
     } catch (error) {
-      console.error('Error refreshing credits:', error);
+      // Credits refresh error - silent
     }
   }, [user]);
 

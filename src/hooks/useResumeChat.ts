@@ -30,7 +30,6 @@ export function useResumeChat({ resumeId }: UseResumeChatProps) {
         .maybeSingle();
 
       if (error) {
-        console.error('Error loading chat:', error);
         setMessages([]);
       } else if (data?.messages) {
         // Parse messages and restore Date objects
@@ -43,7 +42,6 @@ export function useResumeChat({ resumeId }: UseResumeChatProps) {
         setMessages([]);
       }
     } catch (e) {
-      console.error('Error loading chat:', e);
       setMessages([]);
     } finally {
       setIsLoading(false);
@@ -84,7 +82,7 @@ export function useResumeChat({ resumeId }: UseResumeChatProps) {
           }]);
       }
     } catch (e) {
-      console.error('Error saving chat:', e);
+      // Chat save error - silent
     }
   }, [resumeId, user]);
 

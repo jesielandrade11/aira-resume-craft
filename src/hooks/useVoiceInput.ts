@@ -46,7 +46,6 @@ export function useVoiceInput(): UseVoiceInputReturn {
         };
 
         recognition.onerror = (event: any) => {
-            console.error('Speech recognition error', event.error);
             if (event.error === 'not-allowed') {
                 toast.error('Permissão de microfone negada.');
             }
@@ -69,7 +68,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
         try {
             recognitionRef.current.start();
         } catch (e) {
-            console.error('Error starting speech recognition:', e);
+            // Speech recognition start error - silent
         }
     }, [isSupported]);
 

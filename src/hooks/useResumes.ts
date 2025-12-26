@@ -41,7 +41,6 @@ export function useResumes() {
         data: r.data as unknown as ResumeData
       })));
     } catch (error) {
-      console.error('Error fetching resumes:', error);
       toast.error('Erro ao carregar currículos');
     } finally {
       setIsLoading(false);
@@ -101,7 +100,6 @@ export function useResumes() {
         return data?.id || null;
       }
     } catch (error) {
-      console.error('Error saving resume:', error);
       if (!options?.silent) toast.error('Erro ao salvar currículo');
       return null;
     }
@@ -118,7 +116,6 @@ export function useResumes() {
       toast.success('Currículo excluído');
       await fetchResumes();
     } catch (error) {
-      console.error('Error deleting resume:', error);
       toast.error('Erro ao excluir currículo');
     }
   }, [fetchResumes]);
@@ -146,7 +143,6 @@ export function useResumes() {
       toast.success('Currículo duplicado');
       await fetchResumes();
     } catch (error) {
-      console.error('Error duplicating resume:', error);
       toast.error('Erro ao duplicar currículo');
     }
   }, [user, resumes, fetchResumes]);
