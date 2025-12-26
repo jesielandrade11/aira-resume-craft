@@ -178,7 +178,6 @@ export default function Profile() {
               await signOut();
               navigate('/');
             } catch (error) {
-              console.error("Logout failed", error);
               navigate('/'); // Force navigate anyway
             }
           }} title="Sair">

@@ -81,7 +81,6 @@ export function PhotoUpload({ currentPhoto, onChange }: PhotoUploadProps) {
 
       return await response.json();
     } catch (error) {
-      console.error('Photo analysis error:', error);
       toast.error('Não foi possível analisar a foto');
       return null;
     } finally {
@@ -137,7 +136,6 @@ export function PhotoUpload({ currentPhoto, onChange }: PhotoUploadProps) {
         resetState();
       }, 2000);
     } catch (error) {
-      console.error('Error cropping image:', error);
       toast.error('Erro ao processar imagem');
     }
   };

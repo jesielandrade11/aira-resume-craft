@@ -71,7 +71,6 @@ export function BuyCreditsModal({ open, onOpenChange }: BuyCreditsModalProps) {
       window.open(data.url, '_blank');
       onOpenChange(false);
     } catch (error) {
-      console.error('Error creating checkout:', error);
       toast.error('Erro ao iniciar pagamento. Tente novamente.');
     } finally {
       setLoading(null);

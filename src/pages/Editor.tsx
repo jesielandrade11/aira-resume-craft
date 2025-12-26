@@ -108,7 +108,6 @@ const syncResumeToProfile = (resumeData: ResumeData, currentProfile: UserProfile
   }
 
   if (hasUpdates) {
-    console.log("Syncing resume to profile:", updates);
     updateProfileFn(updates);
   }
 };
@@ -291,7 +290,7 @@ export default function Editor() {
           }
         }
       } catch (e) {
-        console.error("Auto-save failed", e);
+        // Auto-save error - silent
       } finally {
         setIsSaving(false);
       }
@@ -414,7 +413,6 @@ export default function Editor() {
           await fetchProfile();
           toast.success('🎉 Créditos adicionados com sucesso!');
         } catch (error) {
-          console.error('Error processing payment:', error);
           await fetchProfile();
         } finally {
           navigate('/editor', { replace: true });

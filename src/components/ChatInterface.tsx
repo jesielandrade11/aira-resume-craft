@@ -122,7 +122,6 @@ export function ChatInterface({
       }
       return null;
     } catch (error) {
-      console.error('PDF extraction error:', error);
       toast.error('Erro ao processar PDF. Cole o texto diretamente no chat.');
       return null;
     } finally {
@@ -339,7 +338,7 @@ export function ChatInterface({
                 actionButton = JSON.parse(actionMatch[1]);
                 displayContent = displayContent.replace(/```action_button\s*\n[\s\S]*?\n```/g, '').trim();
               } catch (e) {
-                console.error('Failed to parse action button:', e);
+                // Invalid action button JSON - skip silently
               }
             }
 
@@ -348,7 +347,7 @@ export function ChatInterface({
               try {
                 profileSuggestion = JSON.parse(profileMatch[1]);
                 displayContent = displayContent.replace(/```profile_update_suggestion\s*\n[\s\S]*?\n```/g, '').trim();
-              } catch (e) { console.error(e) }
+              } catch (e) { /* Invalid profile suggestion JSON - skip silently */ }
             }
           }
 
