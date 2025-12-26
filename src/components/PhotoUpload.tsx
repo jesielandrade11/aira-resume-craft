@@ -6,6 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import Cropper, { Area } from 'react-easy-crop';
+import { supabase } from '@/integrations/supabase/client';
 
 import { PhotoAnalysis } from '@/types';
 
@@ -66,11 +67,19 @@ export function PhotoUpload({ currentPhoto, onChange }: PhotoUploadProps) {
   const analyzePhoto = async (base64: string): Promise<PhotoAnalysis | null> => {
     try {
       setIsAnalyzing(true);
+      
+      // Get user session for proper authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Sessão expirada. Faça login novamente.');
+        return null;
+      }
+      
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-photo`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ imageBase64: base64 }),
       });
