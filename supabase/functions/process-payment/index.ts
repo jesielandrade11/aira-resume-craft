@@ -70,24 +70,32 @@ serve(async (req) => {
       throw new Error("User not found via auth context or metadata");
     }
 
-    // 2. Check if already processed
-    const { data: existing } = await supabaseClient
+    // 2. Insert payment record FIRST to prevent race conditions
+    // The UNIQUE constraint on stripe_session_id ensures idempotency
+    const pkg = PACKAGES[packageId];
+    
+    const { data: insertedPayment, error: insertError } = await supabaseClient
       .from("processed_payments")
+      .insert({
+        user_id: userId,
+        stripe_session_id: sessionId,
+        package_id: packageId,
+      })
       .select("id")
-      .eq("stripe_session_id", sessionId)
       .single();
 
-    if (existing) {
-      return new Response(JSON.stringify({ message: "Already processed" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
+    // If insert fails due to duplicate, payment was already processed
+    if (insertError) {
+      if (insertError.code === "23505") { // Unique violation
+        return new Response(JSON.stringify({ message: "Already processed" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      throw insertError;
     }
 
-    // 3. Process fulfillment
-    const pkg = PACKAGES[packageId];
-
-    // Get current profile
+    // 3. Now safely add credits (we own the lock via the inserted record)
     const { data: profile, error: profileError } = await supabaseClient
       .from("user_profiles")
       .select("credits, is_unlimited")
@@ -96,25 +104,14 @@ serve(async (req) => {
 
     if (profileError) throw profileError;
 
-    // Add credits
-    const updates = {
-      credits: (profile.credits || 0) + pkg.credits
-    };
+    const newCredits = (profile.credits || 0) + pkg.credits;
 
-    // Update profile
     const { error: updateError } = await supabaseClient
       .from("user_profiles")
-      .update(updates)
+      .update({ credits: newCredits })
       .eq("user_id", userId);
 
     if (updateError) throw updateError;
-
-    // 4. Record payment
-    await supabaseClient.from("processed_payments").insert({
-      user_id: userId,
-      stripe_session_id: sessionId,
-      package_id: packageId,
-    });
 
     console.log(`Payment processed: ${pkg.credits} credits added to user ${userId}`);
 
