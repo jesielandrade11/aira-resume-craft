@@ -133,10 +133,11 @@ export function ChatInterface({
   const handleSend = async (overrideMode?: ChatMode) => {
     if ((!input.trim() && attachments.length === 0) || disabled || isExtractingPdf) return;
 
-    // Block if no credits
-    if (credits <= 0) {
+    // Only block generate mode if no credits - planning mode is always free
+    const currentMode = overrideMode || mode;
+    if (currentMode === 'generate' && credits <= 0) {
       toast.error('Seus créditos acabaram!', {
-        description: 'Compre mais créditos para continuar usando a AIRA.',
+        description: 'Compre mais créditos para usar o modo de geração.',
         action: onBuyCredits ? {
           label: 'Comprar',
           onClick: onBuyCredits
