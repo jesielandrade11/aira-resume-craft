@@ -52,6 +52,10 @@ export function useAuth() {
   }, []);
 
   const signOut = useCallback(async () => {
+    // Clear localStorage data on logout to prevent data persistence on shared computers
+    localStorage.removeItem('aira_profile');
+    localStorage.removeItem('aira_resume');
+    
     const { error } = await supabase.auth.signOut();
     return { error };
   }, []);
