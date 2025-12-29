@@ -240,61 +240,153 @@
   }
 }
 
-/* Print Styles - Only print the resume */
+/* Print Styles - Professional A4 PDF Export */
 @media print {
+  /* A4 page setup with proper margins */
   @page {
-    size: A4;
-    margin: 0;
+    size: A4 portrait;
+    margin: 15mm 12mm 15mm 12mm;
   }
 
-  /* Hide everything by default */
-  body * {
-    visibility: hidden;
-  }
-
-  body {
+  /* Reset all visibility first */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    background: white !important;
+    color-adjust: exact !important;
   }
 
-  /* Show only the resume content */
-  .resume-print-area,
+  /* Hide EVERYTHING except resume */
+  body > *:not(.resume-print-wrapper),
+  header,
+  aside,
+  nav,
+  footer,
+  .no-print,
+  .print\\:hidden,
+  [class*="Sheet"],
+  [class*="Dialog"],
+  [class*="Modal"],
+  [class*="Popover"],
+  [class*="zoom"],
+  [class*="Zoom"],
+  button:not(.resume-print-area button) {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* The print wrapper - takes full page */
+  .resume-print-wrapper {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Resume print area - the actual content */
+  .resume-print-area {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+    overflow: visible !important;
+  }
+
   .resume-print-area * {
     visibility: visible !important;
   }
 
-  .resume-print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-  }
-
+  /* Resume page container */
   .resume-page {
-    width: 100%;
-    height: auto;
-    min-height: 297mm;
-    margin: 0;
-    padding: 20mm 18mm;
-    box-shadow: none;
-    overflow: visible;
-    page-break-after: auto;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+    page-break-inside: auto !important;
   }
 
+  /* Two column layouts */
+  .resume-print-area > .flex {
+    display: flex !important;
+    width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Sections should avoid breaking in the middle */
   .resume-section {
-    page-break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 8px !important;
   }
 
-  .resume-item {
-    page-break-inside: avoid;
+  /* Experience/Education items should not break */
+  .resume-section > div > div {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
-  /* Hide non-print elements */
-  .print\\:hidden,
-  header,
-  .no-print {
+  /* Allow page breaks between sections */
+  .resume-section + .resume-section {
+    page-break-before: auto !important;
+  }
+
+  /* Images should print properly */
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Hide edit buttons in print */
+  .group-hover\\:opacity-100,
+  [class*="hover:opacity"],
+  .opacity-0 {
+    opacity: 0 !important;
     display: none !important;
-    visibility: hidden !important;
+  }
+
+  /* Text sizing for print - slightly larger for readability */
+  .text-xs { font-size: 10pt !important; line-height: 1.4 !important; }
+  .text-sm { font-size: 11pt !important; line-height: 1.5 !important; }
+  .text-base { font-size: 12pt !important; line-height: 1.5 !important; }
+  .text-lg { font-size: 13pt !important; line-height: 1.4 !important; }
+  .text-xl { font-size: 14pt !important; line-height: 1.3 !important; }
+  .text-2xl { font-size: 16pt !important; line-height: 1.2 !important; }
+  .text-3xl { font-size: 18pt !important; line-height: 1.2 !important; }
+
+  /* Ensure links are visible */
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  /* Preserve colors in sidebar layouts */
+  [style*="background"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
 }

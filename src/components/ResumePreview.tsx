@@ -432,9 +432,9 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
     // Specific for "Lizzie" style
     if (isRightSidebar) {
       return (
-        <div className="flex min-h-[297mm] h-full" style={{ fontFamily: styles.bodyFont }}>
+        <div className="resume-page flex" style={{ fontFamily: styles.bodyFont, minHeight: '297mm' }}>
           {/* Main Content (Left) */}
-          <div className="flex-[2] p-8" style={{ backgroundColor: mainBg, color: styles.textColor }}>
+          <div className="flex-[2] p-8 print:p-6" style={{ backgroundColor: mainBg, color: styles.textColor }}>
             <div className="mb-8">
               <EditableText value={resume.personalInfo.fullName} onChange={(v) => updatePersonalInfo('fullName', v)} className={cn("font-bold mb-1", getHeadingSize())} style={{ color: styles.primaryColor }} />
               <EditableText value={resume.personalInfo.title} onChange={(v) => updatePersonalInfo('title', v)} className="text-xl uppercase tracking-widest mb-6" style={{ color: styles.secondaryColor }} />
@@ -445,9 +445,9 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
           </div>
 
           {/* Sidebar (Right) */}
-          <div className="flex-1 p-8 text-white relative" style={{ backgroundColor: sidebarBg }}>
+          <div className="flex-1 p-8 print:p-6 text-white relative" style={{ backgroundColor: sidebarBg }}>
             {/* Decorative Circle (Lizzie style) */}
-            <div className="absolute top-0 right-0 w-32 h-32 rounded-bl-full opacity-20" style={{ backgroundColor: styles.secondaryColor }} />
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-bl-full opacity-20 print:hidden" style={{ backgroundColor: styles.secondaryColor }} />
 
             {resume.personalInfo.photo && (
               <div className="mb-6 flex justify-end">
@@ -473,8 +473,8 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
 
     // Standard Left Sidebar (Juliana, etc.)
     return (
-      <div className="flex min-h-[297mm] h-full" style={{ fontFamily: styles.bodyFont }}>
-        <aside className="w-[30%] p-6 flex flex-col gap-6" style={{ backgroundColor: sidebarBg, color: styles.textColor }}>
+      <div className="resume-page flex" style={{ fontFamily: styles.bodyFont, minHeight: '297mm' }}>
+        <aside className="w-[30%] p-6 print:p-4 flex flex-col gap-6" style={{ backgroundColor: sidebarBg, color: styles.textColor }}>
           {resume.personalInfo.photo && (
             <img src={resume.personalInfo.photo} className="w-32 h-32 rounded-full mx-auto object-cover border-4 border-white" />
           )}
@@ -488,7 +488,7 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
             <CertificationsSection />
           </div>
         </aside>
-        <main className="flex-1 p-8" style={{ backgroundColor: mainBg }}>
+        <main className="flex-1 p-8 print:p-6" style={{ backgroundColor: mainBg }}>
           <header className="mb-8 border-b-2 pb-4" style={{ borderColor: styles.primaryColor }}>
             <EditableText value={resume.personalInfo.fullName} onChange={(v) => updatePersonalInfo('fullName', v)} className={cn("font-bold leading-tight", getHeadingSize())} style={{ color: styles.primaryColor }} />
             <EditableText value={resume.personalInfo.title} onChange={(v) => updatePersonalInfo('title', v)} className="text-xl opacity-75 mt-1" style={{ color: styles.secondaryColor }} />
@@ -503,17 +503,17 @@ export function ResumePreview({ resume, onUpdate, enableDrag = true }: ResumePre
 
   // 2. Single Column Layout (Classic, Modern)
   return (
-    <div className="resume-page min-h-[297mm] p-[15mm]" style={{ backgroundColor: styles.backgroundColor, color: styles.textColor, fontFamily: styles.bodyFont }}>
+    <div className="resume-page p-[15mm] print:p-0" style={{ backgroundColor: styles.backgroundColor, color: styles.textColor, fontFamily: styles.bodyFont, minHeight: '297mm' }}>
       {/* Headers */}
       {styles.headerStyle === 'centered' ? (
-        <header className="text-center mb-8">
+        <header className="text-center mb-8 resume-section">
           {resume.personalInfo.photo && <img src={resume.personalInfo.photo} className="w-24 h-24 rounded-full mx-auto mb-3 object-cover" />}
           <EditableText value={resume.personalInfo.fullName} onChange={(v) => updatePersonalInfo('fullName', v)} className={cn("font-bold mb-1", getHeadingSize())} style={{ color: styles.primaryColor }} />
           <EditableText value={resume.personalInfo.title} onChange={(v) => updatePersonalInfo('title', v)} className="text-lg opacity-80 mb-3" style={{ color: styles.secondaryColor }} />
           {renderContactInfo('justify-center text-sm')}
         </header>
       ) : (
-        <header className="mb-8 border-b-2 pb-4 flex gap-4 items-center" style={{ borderColor: styles.primaryColor }}>
+        <header className="mb-8 border-b-2 pb-4 flex gap-4 items-center resume-section" style={{ borderColor: styles.primaryColor }}>
           <div className="flex-1">
             <EditableText value={resume.personalInfo.fullName} onChange={(v) => updatePersonalInfo('fullName', v)} className={cn("font-bold leading-tight", getHeadingSize())} style={{ color: styles.primaryColor }} />
             <EditableText value={resume.personalInfo.title} onChange={(v) => updatePersonalInfo('title', v)} className="text-xl opacity-75 mt-1" style={{ color: styles.secondaryColor }} />
