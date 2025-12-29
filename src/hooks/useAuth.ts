@@ -52,12 +52,23 @@ export function useAuth() {
   }, []);
 
   const signOut = useCallback(async () => {
-    // Clear localStorage data on logout to prevent data persistence on shared computers
-    localStorage.removeItem('aira_profile');
-    localStorage.removeItem('aira_resume');
-    
-    const { error } = await supabase.auth.signOut();
-    return { error };
+    try {
+      // Clear localStorage data on logout to prevent data persistence on shared computers
+      localStorage.removeItem('aira_profile');
+      localStorage.removeItem('aira_resume');
+      localStorage.removeItem('aira_job_description');
+      localStorage.removeItem('aira_credits');
+      
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+      }
+      return { error };
+    } catch (e) {
+      console.error('Unexpected logout error:', e);
+      // Force clear session anyway
+      return { error: e as Error };
+    }
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
