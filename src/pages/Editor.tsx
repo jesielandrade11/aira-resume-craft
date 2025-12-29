@@ -13,6 +13,7 @@ import { PhotoUpload } from '@/components/PhotoUpload';
 import { EditableTitle } from '@/components/EditableTitle';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { PdfExportModal } from '@/components/PdfExportModal';
+import { PageBreakOverlay } from '@/components/PageBreakIndicator';
 import { useAIRAChat } from '@/hooks/useAIRAChat';
 import { useResumeChat } from '@/hooks/useResumeChat';
 import { useResumes } from '@/hooks/useResumes';
@@ -454,6 +455,25 @@ export default function Editor() {
   }, [useCredits, hasUnlimited, userProfile.credits]);
 
   const [savedJobDescription, setSavedJobDescription] = useState(jobDescription);
+  const [contentHeight, setContentHeight] = useState(0);
+
+  // Track content height for page break indicators
+  useEffect(() => {
+    if (!resumePreviewRef.current) return;
+    
+    const updateHeight = () => {
+      if (resumePreviewRef.current) {
+        setContentHeight(resumePreviewRef.current.scrollHeight);
+      }
+    };
+    
+    updateHeight();
+    
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(resumePreviewRef.current);
+    
+    return () => observer.disconnect();
+  }, [resume]);
 
   // Resume chat management
   const {
@@ -794,7 +814,10 @@ export default function Editor() {
               onMouseUp={handlePanEnd}
               onMouseLeave={handlePanEnd}
             >
-              <div className="resume-print-wrapper">
+              <div className="resume-print-wrapper relative">
+                {/* Page break indicators overlay */}
+                <PageBreakOverlay contentHeight={contentHeight} zoom={zoom} />
+                
                 <div
                   ref={resumePreviewRef}
                   className="resume-print-area origin-top transition-transform duration-150 shadow-2xl bg-white"
