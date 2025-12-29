@@ -242,13 +242,13 @@
 
 /* Print Styles - Professional A4 PDF Export */
 @media print {
-  /* A4 page setup with proper margins */
+  /* A4 page setup */
   @page {
     size: A4 portrait;
-    margin: 15mm 12mm 15mm 12mm;
+    margin: 10mm;
   }
 
-  /* Reset all visibility first */
+  /* Reset html/body */
   html, body {
     margin: 0 !important;
     padding: 0 !important;
@@ -258,151 +258,102 @@
     background: white !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    color-adjust: exact !important;
   }
 
-  /* Hide EVERYTHING except resume */
-  body > *:not(.resume-print-wrapper),
-  header,
-  aside,
-  nav,
-  footer,
-  .no-print,
-  .print\:hidden,
-  [class*="Sheet"],
-  [class*="Dialog"],
-  [class*="Modal"],
-  [class*="Popover"],
-  [class*="zoom"],
-  [class*="Zoom"],
-  button:not(.resume-print-area button) {
+  /* Hide everything first */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only resume content */
+  .resume-print-wrapper,
+  .resume-print-wrapper *,
+  .resume-print-area,
+  .resume-print-area *,
+  .resume-page,
+  .resume-page * {
+    visibility: visible !important;
+  }
+
+  /* Position resume at top */
+  .resume-print-wrapper {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide UI elements completely */
+  header, nav, aside:not(.resume-page aside), footer,
+  .no-print, .print\:hidden,
+  [class*="Sheet"], [class*="Dialog"], [class*="Modal"],
+  [class*="Zoom"], [class*="zoom"], [class*="chat"], [class*="Chat"],
+  .page-break-indicator, .resize-handle,
+  .group-hover\:opacity-100, [class*="hover:opacity"], .opacity-0 {
     display: none !important;
     visibility: hidden !important;
   }
 
-  /* The print wrapper - takes full page */
-  .resume-print-wrapper {
-    display: block !important;
-    visibility: visible !important;
-    position: static !important;
-    width: 100% !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  /* Resume print area - the actual content */
+  /* Resume print area */
   .resume-print-area {
-    display: block !important;
-    visibility: visible !important;
     position: static !important;
     width: 100% !important;
-    max-width: 100% !important;
     height: auto !important;
-    min-height: auto !important;
+    transform: none !important;
     margin: 0 !important;
     padding: 0 !important;
-    transform: none !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  /* Resume page */
+  .resume-page {
+    width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 8mm !important;
     box-shadow: none !important;
     border: none !important;
     background: white !important;
-    overflow: visible !important;
-  }
-
-  .resume-print-area * {
-    visibility: visible !important;
-  }
-
-  /* Resume page container */
-  .resume-page {
-    width: 100% !important;
-    max-width: 100% !important;
-    height: auto !important;
-    min-height: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    box-shadow: none !important;
-    border: none !important;
-    overflow: visible !important;
     page-break-inside: auto !important;
   }
 
-  /* Two column layouts */
-  .resume-print-area > .flex {
-    display: flex !important;
-    width: 100% !important;
-    min-height: auto !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
+  /* Font sizes */
+  .resume-page .text-xs { font-size: 9pt !important; line-height: 1.4 !important; }
+  .resume-page .text-sm { font-size: 10pt !important; line-height: 1.5 !important; }
+  .resume-page .text-base { font-size: 11pt !important; line-height: 1.5 !important; }
+  .resume-page .text-lg { font-size: 12pt !important; line-height: 1.4 !important; }
+  .resume-page .text-xl { font-size: 14pt !important; line-height: 1.3 !important; }
+  .resume-page .text-2xl { font-size: 16pt !important; line-height: 1.2 !important; }
+  .resume-page .text-3xl { font-size: 18pt !important; line-height: 1.2 !important; }
 
-  /* Sections should avoid breaking in the middle */
+  /* Page break handling */
   .resume-section {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    margin-bottom: 8px !important;
   }
 
-  /* Experience/Education items should not break */
-  .resume-section > div > div {
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-  }
-
-  /* Allow page breaks between sections */
-  .resume-section + .resume-section {
-    page-break-before: auto !important;
-  }
-
-  /* Images should print properly */
-  img {
-    max-width: 100% !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-  }
-
-  /* Hide edit buttons in print */
-  .group-hover\:opacity-100,
-  [class*="hover:opacity"],
-  .opacity-0 {
-    opacity: 0 !important;
-    display: none !important;
-  }
-
-  /* Text sizing for print - slightly larger for readability */
-  .text-xs { font-size: 10pt !important; line-height: 1.4 !important; }
-  .text-sm { font-size: 11pt !important; line-height: 1.5 !important; }
-  .text-base { font-size: 12pt !important; line-height: 1.5 !important; }
-  .text-lg { font-size: 13pt !important; line-height: 1.4 !important; }
-  .text-xl { font-size: 14pt !important; line-height: 1.3 !important; }
-  .text-2xl { font-size: 16pt !important; line-height: 1.2 !important; }
-  .text-3xl { font-size: 18pt !important; line-height: 1.2 !important; }
-
-  /* Ensure links are visible */
-  a {
-    text-decoration: none !important;
-    color: inherit !important;
-  }
-
-  /* Preserve colors in sidebar layouts */
+  /* Preserve colors */
   [style*="background"] {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    color-adjust: exact !important;
   }
 
   /* ===== COMPACT PDF MODE ===== */
   .pdf-compact-mode .resume-page {
     min-height: auto !important;
-    height: auto !important;
     max-height: 100vh !important;
     overflow: hidden !important;
+    padding: 5mm !important;
   }
-  
+
   .pdf-compact-mode .resume-section {
     margin-bottom: 2px !important;
   }
-  
-  /* Fontes menores para compactar */
+
   .pdf-compact-mode .text-xs { font-size: 7pt !important; line-height: 1.2 !important; }
   .pdf-compact-mode .text-sm { font-size: 8pt !important; line-height: 1.2 !important; }
   .pdf-compact-mode .text-base { font-size: 9pt !important; line-height: 1.3 !important; }
@@ -410,47 +361,31 @@
   .pdf-compact-mode .text-xl { font-size: 11pt !important; line-height: 1.2 !important; }
   .pdf-compact-mode .text-2xl { font-size: 12pt !important; line-height: 1.1 !important; }
   .pdf-compact-mode .text-3xl { font-size: 14pt !important; line-height: 1.1 !important; }
-  
-  /* Padding e gaps reduzidos */
-  .pdf-compact-mode .p-8,
-  .pdf-compact-mode .p-6,
-  .pdf-compact-mode .p-5,
-  .pdf-compact-mode .p-4 { 
-    padding: 6px !important; 
-  }
-  
-  .pdf-compact-mode .gap-8,
-  .pdf-compact-mode .gap-6,
-  .pdf-compact-mode .gap-5,
-  .pdf-compact-mode .gap-4 { 
-    gap: 4px !important; 
-  }
-  
-  .pdf-compact-mode .space-y-6 > * + *,
-  .pdf-compact-mode .space-y-5 > * + *,
-  .pdf-compact-mode .space-y-4 > * + *,
-  .pdf-compact-mode .space-y-3 > * + * { 
-    margin-top: 3px !important; 
-  }
-  
-  .pdf-compact-mode .mb-6,
-  .pdf-compact-mode .mb-5,
-  .pdf-compact-mode .mb-4,
-  .pdf-compact-mode .mb-3 {
-    margin-bottom: 3px !important;
-  }
-  
-  .pdf-compact-mode .mt-6,
-  .pdf-compact-mode .mt-5,
-  .pdf-compact-mode .mt-4,
-  .pdf-compact-mode .mt-3 {
-    margin-top: 3px !important;
-  }
 
-  .pdf-compact-mode .py-4,
-  .pdf-compact-mode .py-3,
-  .pdf-compact-mode .py-2 {
-    padding-top: 2px !important;
-    padding-bottom: 2px !important;
-  }
+  .pdf-compact-mode .p-8, .pdf-compact-mode .p-6, .pdf-compact-mode .p-5, .pdf-compact-mode .p-4 { padding: 4px !important; }
+  .pdf-compact-mode .gap-8, .pdf-compact-mode .gap-6, .pdf-compact-mode .gap-5, .pdf-compact-mode .gap-4 { gap: 3px !important; }
+  .pdf-compact-mode .space-y-6 > * + *, .pdf-compact-mode .space-y-5 > * + *, .pdf-compact-mode .space-y-4 > * + *, .pdf-compact-mode .space-y-3 > * + * { margin-top: 2px !important; }
+  .pdf-compact-mode .mb-6, .pdf-compact-mode .mb-5, .pdf-compact-mode .mb-4, .pdf-compact-mode .mb-3 { margin-bottom: 2px !important; }
+  .pdf-compact-mode .mt-6, .pdf-compact-mode .mt-5, .pdf-compact-mode .mt-4, .pdf-compact-mode .mt-3 { margin-top: 2px !important; }
+  .pdf-compact-mode .py-4, .pdf-compact-mode .py-3, .pdf-compact-mode .py-2 { padding-top: 1px !important; padding-bottom: 1px !important; }
+}
+
+/* Page Break Indicator - Visual pagination like Google Docs */
+.page-break-indicator {
+  @apply w-full flex flex-col items-center pointer-events-none select-none;
+}
+
+.page-break-line {
+  @apply w-full h-6 bg-muted/60 border-y border-dashed border-border flex items-center justify-center;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 10px,
+    hsl(var(--border)) 10px,
+    hsl(var(--border)) 20px
+  );
+}
+
+.page-break-badge {
+  @apply px-3 py-0.5 bg-muted text-muted-foreground text-xs rounded-full font-medium shadow-sm;
 }
