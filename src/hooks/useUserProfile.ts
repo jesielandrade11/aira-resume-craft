@@ -94,17 +94,76 @@ export function useUserProfile() {
   }, [fetchProfile]);
 
   // Save profile to localStorage and database
-  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
+  const updateProfile = useCallback(async (updates: Partial<UserProfile>, options?: { silent?: boolean }) => {
     if (!user) {
-      toast.error('Você precisa estar logado');
+      if (!options?.silent) toast.error('Você precisa estar logado');
       return;
     }
 
     try {
       setIsSaving(true);
       
+      // Merge experiences, skills, education, languages, certifications (additive)
+      const mergedProfile = { ...profile };
+      
+      // Merge experiences (avoid duplicates by company+position)
+      if (updates.experiences && Array.isArray(updates.experiences)) {
+        const existingExps = mergedProfile.experiences || [];
+        const newExps = updates.experiences.filter(newExp => 
+          !existingExps.some(exp => 
+            exp.company?.toLowerCase() === newExp.company?.toLowerCase() && 
+            exp.position?.toLowerCase() === newExp.position?.toLowerCase()
+          )
+        );
+        mergedProfile.experiences = [...existingExps, ...newExps];
+        delete updates.experiences;
+      }
+      
+      // Merge skills (avoid duplicates)
+      if (updates.skills && Array.isArray(updates.skills)) {
+        const existingSkills = mergedProfile.skills || [];
+        const newSkills = updates.skills.filter(s => 
+          !existingSkills.some(es => es.toLowerCase() === s.toLowerCase())
+        );
+        mergedProfile.skills = [...existingSkills, ...newSkills];
+        delete updates.skills;
+      }
+      
+      // Merge education (avoid duplicates by institution+degree)
+      if (updates.education && Array.isArray(updates.education)) {
+        const existingEdu = mergedProfile.education || [];
+        const newEdu = updates.education.filter(newE => 
+          !existingEdu.some(e => 
+            e.institution?.toLowerCase() === newE.institution?.toLowerCase() && 
+            e.degree?.toLowerCase() === newE.degree?.toLowerCase()
+          )
+        );
+        mergedProfile.education = [...existingEdu, ...newEdu];
+        delete updates.education;
+      }
+      
+      // Merge languages (avoid duplicates by name)
+      if (updates.languages && Array.isArray(updates.languages)) {
+        const existingLangs = mergedProfile.languages || [];
+        const newLangs = updates.languages.filter(newL => 
+          !existingLangs.some(l => l.name?.toLowerCase() === newL.name?.toLowerCase())
+        );
+        mergedProfile.languages = [...existingLangs, ...newLangs];
+        delete updates.languages;
+      }
+      
+      // Merge certifications (avoid duplicates)
+      if (updates.certifications && Array.isArray(updates.certifications)) {
+        const existingCerts = mergedProfile.certifications || [];
+        const newCerts = updates.certifications.filter(c => 
+          !existingCerts.some(ec => ec.toLowerCase() === c.toLowerCase())
+        );
+        mergedProfile.certifications = [...existingCerts, ...newCerts];
+        delete updates.certifications;
+      }
+      
       const updatedProfile = {
-        ...profile,
+        ...mergedProfile,
         ...updates,
         updatedAt: new Date().toISOString(),
       };
@@ -137,9 +196,14 @@ export function useUserProfile() {
 
       if (error) throw error;
       
-      toast.success('Perfil atualizado!');
+      // Only show toast if not silent
+      if (!options?.silent) {
+        toast.success('Perfil atualizado!');
+      }
     } catch (error) {
-      toast.error('Erro ao salvar perfil');
+      if (!options?.silent) {
+        toast.error('Erro ao salvar perfil');
+      }
     } finally {
       setIsSaving(false);
     }

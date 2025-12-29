@@ -284,9 +284,9 @@ export default function Editor() {
           }
           setLastSaved(new Date());
 
-          // Sync to profile
+          // Sync to profile silently
           if (userProfile) {
-            syncResumeToProfile(debouncedResume, userProfile, handleProfileUpdate);
+            syncResumeToProfile(debouncedResume, userProfile, (updates) => handleProfileUpdate(updates, { silent: true }));
           }
         }
       } catch (e) {
@@ -525,7 +525,7 @@ export default function Editor() {
       if (fullPrompt) {
         setHasAutoSentPrompt(true);
         setTimeout(() => {
-          const useMode = forceGenerateMode || attachments.length > 0 ? 'planning' : (isPlanning ? 'planning' : 'planning');
+          const useMode = 'planning'; // Always start in planning mode
           sendMessage(fullPrompt, attachments.length > 0 ? attachments : undefined, useMode);
         }, 500);
       }
@@ -573,12 +573,12 @@ export default function Editor() {
 
   const handleManualSave = async () => {
     setIsSaving(true);
-    const id = await saveResume(resume, jobDescription, currentResumeId || undefined, resumeTitle);
+    const id = await saveResume(resume, jobDescription, currentResumeId || undefined, resumeTitle, { silent: true });
     setIsSaving(false);
     if (id) {
       setCurrentResumeId(id);
       setLastSaved(new Date());
-      toast.success('Currículo salvo com sucesso!');
+      // Silent save - no toast notification
     }
   };
 

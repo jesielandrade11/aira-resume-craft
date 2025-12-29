@@ -45,7 +45,7 @@ export function useAIRAChat({
 
   const [isLoading, setIsLoading] = useState(false);
   const [thinkingStatus, setThinkingStatus] = useState<string | null>(null);
-  const [mode, setMode] = useState<ChatMode>('planning');
+  const [mode, setMode] = useState<ChatMode>('planning'); // Always start in planning mode
   const [isModeLocked, setIsModeLocked] = useState(false);
 
   const prevJobDescriptionRef = useRef(jobDescription);
@@ -258,8 +258,12 @@ export function useAIRAChat({
     setIsLoading(true);
     setThinkingStatus("Processando..."); // Initial processing status
 
-    const creditCost = currentMode === 'planning' ? 0 : 1;
-    onCreditsUsed(creditCost);
+    // Planning mode is FREE, only generate mode costs credits
+    // Job description analysis is also FREE (planning mode)
+    const creditCost = currentMode === 'generate' ? 1 : 0;
+    if (creditCost > 0) {
+      onCreditsUsed(creditCost);
+    }
 
     let assistantContent = '';
 
