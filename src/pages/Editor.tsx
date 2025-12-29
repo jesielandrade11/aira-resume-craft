@@ -786,17 +786,19 @@ export default function Editor() {
               onMouseUp={handlePanEnd}
               onMouseLeave={handlePanEnd}
             >
-              <div
-                ref={resumePreviewRef}
-                className="resume-print-area origin-top transition-transform duration-150 print:transform-none shadow-2xl print:shadow-none bg-white min-h-[297mm]"
-                style={{
-                  transform: `scale(${zoom})`,
-                  width: '210mm',
-                  height: 'max-content',
-                  pointerEvents: isPanning ? 'none' : 'auto'
-                }}
-              >
-                <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
+              <div className="resume-print-wrapper">
+                <div
+                  ref={resumePreviewRef}
+                  className="resume-print-area origin-top transition-transform duration-150 shadow-2xl bg-white"
+                  style={{
+                    transform: `scale(${zoom})`,
+                    width: '210mm',
+                    minHeight: 'max-content',
+                    pointerEvents: isPanning ? 'none' : 'auto'
+                  }}
+                >
+                  <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
+                </div>
               </div>
             </div>
           </main>
@@ -813,8 +815,10 @@ export default function Editor() {
           {mobileView === 'preview' && (
             <div className="flex-1 overflow-auto p-2 bg-muted/30">
               <ZoomControls zoom={zoom} onZoomChange={setZoom} />
-              <div ref={resumePreviewRef} className="resume-print-area bg-white" style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', width: '210mm' }}>
-                <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
+              <div className="resume-print-wrapper">
+                <div ref={resumePreviewRef} className="resume-print-area bg-white" style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', width: '210mm' }}>
+                  <ResumePreview resume={resume} onUpdate={handleResumeUpdate} />
+                </div>
               </div>
             </div>
           )}
