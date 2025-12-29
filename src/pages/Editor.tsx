@@ -12,6 +12,7 @@ import { BuyCreditsModal } from '@/components/BuyCreditsModal';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { EditableTitle } from '@/components/EditableTitle';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { PdfExportModal } from '@/components/PdfExportModal';
 import { useAIRAChat } from '@/hooks/useAIRAChat';
 import { useResumeChat } from '@/hooks/useResumeChat';
 import { useResumes } from '@/hooks/useResumes';
@@ -316,6 +317,7 @@ export default function Editor() {
 
   const [zoom, setZoom] = useState(1);
   const [showBuyCreditsModal, setShowBuyCreditsModal] = useState(false);
+  const [showPdfExportModal, setShowPdfExportModal] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // Pan/drag state for resume preview
@@ -549,7 +551,13 @@ export default function Editor() {
     setShowResetConfirm(false);
   };
 
-  const handleExportPDF = useCallback(async () => {
+  const handleExportPDFClick = useCallback(() => {
+    setShowPdfExportModal(true);
+  }, []);
+
+  const handleExportPDF = useCallback(async (mode: 'compact' | 'multipage') => {
+    setShowPdfExportModal(false);
+    
     const element = resumePreviewRef.current;
     if (!element) {
       toast.error('Não foi possível gerar o PDF');
@@ -561,7 +569,7 @@ export default function Editor() {
     const success = await downloadPdf(
       element,
       `${resumeTitle.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
-      getResumeHash()
+      mode
     );
 
     if (success) {
@@ -569,7 +577,7 @@ export default function Editor() {
     } else {
       toast.error('Erro ao gerar PDF', { id: 'pdf-generation' });
     }
-  }, [downloadPdf, resumeTitle, getResumeHash]);
+  }, [downloadPdf, resumeTitle]);
 
   const handleManualSave = async () => {
     setIsSaving(true);
@@ -687,7 +695,7 @@ export default function Editor() {
               <Save className="w-4 h-4" />
               Salvar
             </Button>
-            <Button variant="default" size="sm" onClick={handleExportPDF} className="gap-2">
+            <Button variant="default" size="sm" onClick={handleExportPDFClick} className="gap-2">
               <Download className="w-4 h-4" />
               Baixar PDF
             </Button>
@@ -724,7 +732,7 @@ export default function Editor() {
                     })}
                   />
                   <Button onClick={handleManualSave} className="justify-start gap-2"><Save className="w-4 h-4" /> Salvar Currículo</Button>
-                  <Button onClick={handleExportPDF} variant="outline" className="justify-start gap-2"><Download className="w-4 h-4" /> Baixar PDF</Button>
+                  <Button onClick={handleExportPDFClick} variant="outline" className="justify-start gap-2"><Download className="w-4 h-4" /> Baixar PDF</Button>
                   <Button onClick={() => navigate('/')} variant="ghost" className="justify-start gap-2"><Home className="w-4 h-4" /> Voltar ao Início</Button>
                   <Button onClick={handleReset} variant="ghost" className="justify-start gap-2"><RotateCcw className="w-4 h-4" /> Recomeçar</Button>
                 </div>
@@ -830,6 +838,12 @@ export default function Editor() {
       )}
 
       <BuyCreditsModal open={showBuyCreditsModal} onOpenChange={setShowBuyCreditsModal} />
+
+      <PdfExportModal 
+        open={showPdfExportModal} 
+        onOpenChange={setShowPdfExportModal}
+        onExport={handleExportPDF}
+      />
 
       <ConfirmDialog
         open={showResetConfirm}
