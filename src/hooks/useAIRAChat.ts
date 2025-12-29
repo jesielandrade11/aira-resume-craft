@@ -173,7 +173,56 @@ export function useAIRAChat({
             if (updateData.action === 'update' && updateData.data) {
               appliedUpdatesRef.current.add(updateHash);
               pushToUndoHistory(currentResume);
-              onResumeUpdate(updateData.data);
+              
+              // MERGE: Preserve existing data, only update what was specified
+              const mergedData = { ...updateData.data };
+              
+              // For arrays (experience, education, skills, languages, certifications)
+              // MERGE with existing data instead of replacing
+              const arrayFields = ['experience', 'education', 'skills', 'languages', 'certifications'];
+              arrayFields.forEach(field => {
+                if (mergedData[field] && Array.isArray(mergedData[field])) {
+                  const existingArray = currentResume[field as keyof ResumeData] as any[] || [];
+                  const newItems = mergedData[field] as any[];
+                  
+                  // Merge: keep existing items, add/update new ones by id
+                  const mergedArray = [...existingArray];
+                  newItems.forEach((newItem: any) => {
+                    if (newItem.id) {
+                      const existingIndex = mergedArray.findIndex((e: any) => e.id === newItem.id);
+                      if (existingIndex >= 0) {
+                        // Update existing item
+                        mergedArray[existingIndex] = { ...mergedArray[existingIndex], ...newItem };
+                      } else {
+                        // Add new item
+                        mergedArray.push(newItem);
+                      }
+                    } else {
+                      // No id, just add
+                      mergedArray.push(newItem);
+                    }
+                  });
+                  mergedData[field] = mergedArray;
+                }
+              });
+              
+              // For personalInfo, merge with existing
+              if (mergedData.personalInfo) {
+                mergedData.personalInfo = {
+                  ...currentResume.personalInfo,
+                  ...mergedData.personalInfo
+                };
+              }
+              
+              // For styles, merge with existing to preserve layout + data
+              if (mergedData.styles) {
+                mergedData.styles = {
+                  ...currentResume.styles,
+                  ...mergedData.styles
+                };
+              }
+              
+              onResumeUpdate(mergedData);
               toast.success('✓ Currículo atualizado!');
             }
           } catch (e) {
