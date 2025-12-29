@@ -457,22 +457,21 @@ export default function Editor() {
   const [savedJobDescription, setSavedJobDescription] = useState(jobDescription);
   const [contentHeight, setContentHeight] = useState(0);
 
-  // Track content height for page break indicators
+  // Track content height for page break indicators - simple version
   useEffect(() => {
-    if (!resumePreviewRef.current) return;
-    
     const updateHeight = () => {
       if (resumePreviewRef.current) {
         setContentHeight(resumePreviewRef.current.scrollHeight);
       }
     };
     
+    // Initial update after render
+    const timeoutId = setTimeout(updateHeight, 100);
+    
+    // Update on resume changes
     updateHeight();
     
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(resumePreviewRef.current);
-    
-    return () => observer.disconnect();
+    return () => clearTimeout(timeoutId);
   }, [resume]);
 
   // Resume chat management
