@@ -26,11 +26,16 @@ export function usePdfGenerator() {
   const downloadPdf = useCallback(async (
     element: HTMLElement,
     filename: string = 'curriculo.pdf',
-    resumeHash?: string
+    mode: 'compact' | 'multipage' = 'multipage'
   ) => {
     // Set document title temporarily to influence filename in print dialog
     const originalTitle = document.title;
     document.title = filename.replace('.pdf', '');
+
+    // Apply compact mode class if needed
+    if (mode === 'compact') {
+      document.body.classList.add('pdf-compact-mode');
+    }
 
     try {
       window.print();
@@ -38,6 +43,9 @@ export function usePdfGenerator() {
     } catch (e) {
       return false;
     } finally {
+      // Remove compact mode class
+      document.body.classList.remove('pdf-compact-mode');
+      
       // Restore title after a small delay to ensure print dialog picked it up
       setTimeout(() => {
         document.title = originalTitle;
