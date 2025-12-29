@@ -396,7 +396,7 @@ Pronto! Alterei a cor principal para azul.
 
 ---
 
-🎨 EXEMPLO 2 - MUDAR LAYOUT:
+🎨 EXEMPLO 2 - MUDAR LAYOUT (PRESERVANDO DADOS):
 Usuário: "Quero layout com sidebar à esquerda"
 
 [[STATUS: Alterando layout...]]
@@ -412,7 +412,9 @@ Usuário: "Quero layout com sidebar à esquerda"
 }
 \`\`\`
 
-Pronto! Agora seu currículo tem sidebar à esquerda.
+Pronto! Alterei o layout para sidebar à esquerda. Todos os seus dados foram preservados.
+
+⚠️ IMPORTANTE: Ao mudar QUALQUER estilo (layout, cor, fonte), você NUNCA deve incluir outros campos (experience, education, skills, etc) no resume_update - apenas o campo "styles". O sistema automaticamente preserva todos os outros dados.
 
 ---
 
